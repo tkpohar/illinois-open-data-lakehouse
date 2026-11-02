@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "illinois-open-data-lakehouse"
+version = "0.1.0"
+description = "An end-to-end open-data lakehouse built on City of Chicago & State of Illinois public datasets."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Tanvai Pohare" }]
+license = { text = "MIT" }
+dependencies = [
+    "requests>=2.31",
+    "duckdb>=1.0",
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[project.scripts]
+lakehouse = "lakehouse.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

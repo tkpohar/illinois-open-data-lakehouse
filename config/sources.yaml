@@ -1,0 +1,23 @@
+# Public datasets ingested into the bronze layer.
+# All sources are Socrata (SODA) APIs — no API key required for modest volumes.
+sources:
+  chicago_crimes:
+    domain: data.cityofchicago.org
+    dataset_id: ijzp-q8t2
+    description: Crimes - 2001 to Present
+    incremental_column: updated_on
+    primary_key: id
+
+  chicago_311_requests:
+    domain: data.cityofchicago.org
+    dataset_id: v6vf-nfxy
+    description: 311 Service Requests
+    incremental_column: last_modified_date
+    primary_key: sr_number
+
+  chicago_taxi_trips:
+    domain: data.cityofchicago.org
+    dataset_id: wrvz-psew
+    description: Taxi Trips (2013-2023)
+    incremental_column: trip_start_timestamp
+    primary_key: trip_id
