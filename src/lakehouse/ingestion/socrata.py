@@ -42,7 +42,13 @@ class SocrataClient:
                 if attempt == self.max_retries:
                     raise
                 wait = self.backoff_seconds * 2 ** (attempt - 1)
-                log.warning("Request failed (%s); retry %d in %.1fs", exc, attempt, wait)
+                log.warning(
+                    "Request failed (%s); retry %d in %.1fs",
+                    exc,
+                    attempt,
+                    wait,
+                    extra={"url": url, "attempt": attempt, "wait_s": wait},
+                )
                 time.sleep(wait)
         return []  # unreachable
 
@@ -66,6 +72,11 @@ class SocrataClient:
                 params["$where"] = f"{source.incremental_column} > '{since}'"
 
             page = self._get(source.endpoint, params)
+            log.debug(
+                "Fetched page of %d records",
+                len(page),
+                extra={"source": source.name, "offset": offset, "page_records": len(page)},
+            )
             if not page:
                 return
             for record in page:
