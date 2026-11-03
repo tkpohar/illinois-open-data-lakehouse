@@ -1,10 +1,17 @@
-"""Bronze layer: raw records landed in DuckDB with ingestion metadata."""
+"""Bronze layer: raw records landed in DuckDB with ingestion metadata.
+
+Bronze is append-only: every version of a record that the source ever returned is kept.
+For each source a view ``bronze.<source>__latest`` exposes exactly one row per key, the
+latest version (see ``docs/bronze-dedupe.md``). ``BronzeStore.compact`` optionally
+rewrites the table to drop superseded versions.
+"""
 
 from __future__ import annotations
 
 import json
 import logging
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,15 +21,34 @@ import duckdb
 from lakehouse.logging_setup import get_run_id
 
 DEFAULT_DB = Path("data/lakehouse.duckdb")
+LATEST_SUFFIX = "__latest"
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class DedupeStats:
+    """Row counts for a bronze table: raw rows, distinct keys, superseded versions."""
+
+    source: str
+    rows: int
+    keys: int
+
+    @property
+    def duplicates(self) -> int:
+        return self.rows - self.keys
+
+
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
 
 
 class BronzeStore:
     """Append-only raw storage. Each record is kept as JSON plus lineage columns.
 
-    Lineage columns: ``record_key``, ``ingested_at`` and ``run_id`` (the ingestion run
-    that landed the row, matching ``bronze._ingestion_log.run_id``).
+    Lineage columns: ``record_key``, ``ingested_at``, ``run_id`` (the ingestion run that
+    landed the row, matching ``bronze._ingestion_log.run_id``) and ``ingest_seq`` (the
+    record's position within its write batch, used to order same-batch duplicates).
     """
 
     def __init__(self, db_path: Path | str = DEFAULT_DB) -> None:
@@ -46,6 +72,15 @@ class BronzeStore:
         self.con.execute(
             "ALTER TABLE bronze._ingestion_log ADD COLUMN IF NOT EXISTS run_id VARCHAR"
         )
+        self.con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bronze._sources (
+                source              VARCHAR PRIMARY KEY,
+                primary_key         VARCHAR,
+                incremental_column  VARCHAR
+            )
+            """
+        )
 
     def _ensure_table(self, source: str) -> None:
         self.con.execute(
@@ -54,11 +89,52 @@ class BronzeStore:
                 record_key   VARCHAR,
                 payload      JSON,
                 ingested_at  TIMESTAMP,
-                run_id       VARCHAR
+                run_id       VARCHAR,
+                ingest_seq   BIGINT
             )
             """
         )
+        # Migrate tables created by earlier versions.
         self.con.execute(f"ALTER TABLE bronze.{source} ADD COLUMN IF NOT EXISTS run_id VARCHAR")
+        self.con.execute(
+            f"ALTER TABLE bronze.{source} ADD COLUMN IF NOT EXISTS ingest_seq BIGINT"
+        )
+
+    def _register_source(
+        self, source: str, primary_key: str, incremental_column: str | None
+    ) -> None:
+        self.con.execute(
+            "INSERT OR REPLACE INTO bronze._sources VALUES (?, ?, ?)",
+            [source, primary_key, incremental_column],
+        )
+
+    def _incremental_column(self, source: str) -> str | None:
+        row = self.con.execute(
+            "SELECT incremental_column FROM bronze._sources WHERE source = ?", [source]
+        ).fetchone()
+        return row[0] if row else None
+
+    def _latest_order_by(self, source: str) -> str:
+        """Newest version first: incremental column, then ingest time, then batch order."""
+        terms = []
+        inc = self._incremental_column(source)
+        if inc:
+            terms.append(f"payload->>{_sql_literal(inc)} DESC NULLS LAST")
+        terms += ["ingested_at DESC NULLS LAST", "ingest_seq DESC NULLS LAST"]
+        return ", ".join(terms)
+
+    def _latest_select(self, source: str) -> str:
+        return (
+            f"SELECT * FROM bronze.{source} "
+            f"QUALIFY row_number() OVER ("
+            f"PARTITION BY record_key ORDER BY {self._latest_order_by(source)}) = 1"
+        )
+
+    def _refresh_latest_view(self, source: str) -> None:
+        self.con.execute(
+            f"CREATE OR REPLACE VIEW bronze.{source}{LATEST_SUFFIX} AS "
+            + self._latest_select(source)
+        )
 
     def write(
         self,
@@ -68,22 +144,27 @@ class BronzeStore:
         incremental_column: str | None = None,
         run_id: str | None = None,
     ) -> int:
-        """Append records; ``run_id`` defaults to the current logging run context."""
+        """Append records; ``run_id`` defaults to the current logging run context.
+
+        Also (re)creates the ``bronze.<source>__latest`` view.
+        """
         run_id = run_id or get_run_id()
         self._ensure_table(source)
+        self._register_source(source, primary_key, incremental_column)
         started = datetime.now(timezone.utc).replace(tzinfo=None)
         rows, watermark = [], None
-        for rec in records:
-            rows.append((str(rec.get(primary_key)), json.dumps(rec), started, run_id))
+        for seq, rec in enumerate(records):
+            rows.append((str(rec.get(primary_key)), json.dumps(rec), started, run_id, seq))
             if incremental_column and rec.get(incremental_column):
                 value = rec[incremental_column]
                 watermark = value if watermark is None or value > watermark else watermark
         if rows:
             self.con.executemany(
-                f"INSERT INTO bronze.{source} (record_key, payload, ingested_at, run_id) "
-                "VALUES (?, ?, ?, ?)",
+                f"INSERT INTO bronze.{source} "
+                "(record_key, payload, ingested_at, run_id, ingest_seq) VALUES (?, ?, ?, ?, ?)",
                 rows,
             )
+        self._refresh_latest_view(source)
         finished = datetime.now(timezone.utc).replace(tzinfo=None)
         self.con.execute(
             "INSERT INTO bronze._ingestion_log "
@@ -98,6 +179,50 @@ class BronzeStore:
             extra={"source": source, "records": len(rows), "watermark": watermark},
         )
         return len(rows)
+
+    def latest(self, source: str) -> list[dict[str, Any]]:
+        """The latest version of every record, as parsed payload dicts (ordered by key)."""
+        rows = self.con.execute(
+            f"SELECT payload FROM bronze.{source}{LATEST_SUFFIX} ORDER BY record_key"
+        ).fetchall()
+        return [json.loads(r[0]) for r in rows]
+
+    def dedupe_stats(self, source: str) -> DedupeStats:
+        rows, keys = self.con.execute(
+            f"SELECT count(*), count(DISTINCT record_key) FROM bronze.{source}"
+        ).fetchone()
+        return DedupeStats(source=source, rows=rows, keys=keys)
+
+    def compact(self, source: str) -> int:
+        """Physically drop superseded versions, keeping the latest row per key.
+
+        Returns the number of rows removed. Runs in a single transaction.
+        """
+        before = self.count(source)
+        self._ensure_table(source)
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            self.con.execute(
+                "CREATE OR REPLACE TEMP TABLE _bronze_compact AS " + self._latest_select(source)
+            )
+            self.con.execute(f"DELETE FROM bronze.{source}")
+            self.con.execute(
+                f"INSERT INTO bronze.{source} BY NAME SELECT * FROM _bronze_compact"
+            )
+            self.con.execute("DROP TABLE _bronze_compact")
+            self.con.execute("COMMIT")
+        except Exception:
+            self.con.execute("ROLLBACK")
+            raise
+        self._refresh_latest_view(source)
+        removed = before - self.count(source)
+        log.info(
+            "Compacted bronze.%s: removed %d superseded rows",
+            source,
+            removed,
+            extra={"source": source, "removed": removed},
+        )
+        return removed
 
     def last_watermark(self, source: str) -> str | None:
         row = self.con.execute(

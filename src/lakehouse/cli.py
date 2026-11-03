@@ -32,6 +32,15 @@ def main(argv: list[str] | None = None) -> int:
     ingest.add_argument("--db", default=str(DEFAULT_DB))
     ingest.add_argument("--run-id", default=None, help="Override the generated run ID")
 
+    dedupe = sub.add_parser(
+        "dedupe", help="Report duplicate versions in bronze and compact to the latest per key"
+    )
+    dedupe.add_argument("source")
+    dedupe.add_argument("--db", default=str(DEFAULT_DB))
+    dedupe.add_argument(
+        "--dry-run", action="store_true", help="Only report counts; do not remove rows"
+    )
+
     args = parser.parse_args(argv)
     configure_logging(level=args.log_level.upper(), json_output=args.log_json)
     sources = load_sources()
@@ -40,6 +49,9 @@ def main(argv: list[str] | None = None) -> int:
         for name, src in sources.items():
             print(f"{name:<24} {src.endpoint}  — {src.description}")
         return 0
+
+    if args.command == "dedupe":
+        return _dedupe(args.source, args.db, args.dry_run)
 
     if args.source not in sources:
         parser.error(f"Unknown source '{args.source}'. Try: {', '.join(sources)}")
@@ -77,6 +89,30 @@ def main(argv: list[str] | None = None) -> int:
                 "duration_s": round(time.monotonic() - t0, 3),
             },
         )
+    return 0
+
+
+def _dedupe(source: str, db: str, dry_run: bool) -> int:
+    store = BronzeStore(db)
+    try:
+        exists = store.con.execute(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_schema = 'bronze' AND table_name = ?",
+            [source],
+        ).fetchone()[0]
+        if not exists:
+            log.error("No bronze table for source '%s'", source, extra={"source": source})
+            return 1
+        stats = store.dedupe_stats(source)
+        print(
+            f"bronze.{source}: {stats.rows} rows, {stats.keys} keys, "
+            f"{stats.duplicates} superseded"
+        )
+        if not dry_run and stats.duplicates:
+            removed = store.compact(source)
+            print(f"Removed {removed} superseded rows")
+    finally:
+        store.close()
     return 0
 
 

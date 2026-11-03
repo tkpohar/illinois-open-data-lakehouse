@@ -6,7 +6,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 ## Phase 1 — Foundations & ingestion
 - [x] 1. Project scaffold, config loader, Socrata client, bronze store, CLI, CI
 - [x] 2. Structured logging + run IDs across ingestion
-- [ ] 3. Upsert/dedupe strategy in bronze (latest record per key)
+- [x] 3. Upsert/dedupe strategy in bronze (latest record per key)
 - [ ] 4. Schema snapshot: infer & store source schema per run
 - [ ] 5. Schema-drift detection between runs
 - [ ] 6. Add Illinois state dataset (data.illinois.gov) as a fourth source

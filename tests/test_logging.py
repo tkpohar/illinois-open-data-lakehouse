@@ -24,15 +24,6 @@ def records():
     return json.loads(FIXTURE.read_text())
 
 
-@pytest.fixture(autouse=True)
-def _restore_root_logger():
-    root = logging.getLogger()
-    handlers, level = list(root.handlers), root.level
-    yield
-    root.handlers[:] = handlers
-    root.setLevel(level)
-
-
 def test_new_run_id_format_and_uniqueness():
     a, b = new_run_id(), new_run_id()
     assert re.fullmatch(r"\d{8}T\d{6}Z-[0-9a-f]{8}", a)
@@ -86,10 +77,12 @@ def test_text_logs_show_run_id_and_extras():
 
 def test_configure_logging_is_idempotent():
     root = logging.getLogger()
-    before = len(root.handlers)
+    others = [h for h in root.handlers if not getattr(h, "_lakehouse_handler", False)]
     configure_logging(stream=io.StringIO())
-    configure_logging(json_output=True, stream=io.StringIO())
-    assert len(root.handlers) == before + 1
+    second = configure_logging(json_output=True, stream=io.StringIO())
+    ours = [h for h in root.handlers if getattr(h, "_lakehouse_handler", False)]
+    assert ours == [second]
+    assert [h for h in root.handlers if h is not second] == others
 
 
 def test_bronze_records_run_id(records):

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-03 — Milestone 3: bronze upsert/dedupe (latest record per key)
+- Bronze stays append-only; new `bronze.<source>__latest` view returns one row per key,
+  ranked by the source's incremental column, then ingest time, then position in the batch
+- `BronzeStore.latest`, `dedupe_stats` and transactional `compact` (drops superseded versions)
+- New `ingest_seq` lineage column and `bronze._sources` registry; older tables migrated in place
+- CLI: `lakehouse dedupe <source> [--dry-run]`
+- Tests isolate root-logger state via a shared `tests/conftest.py`
+- Docs: `docs/bronze-dedupe.md`; tests in `tests/test_bronze_dedupe.py`
+
 ## 2026-11-02 — Milestone 2: structured logging + run IDs
 - New `lakehouse.logging_setup`: per-run IDs via `run_context`, JSON and text formatters,
   idempotent `configure_logging`; `extra=` fields become structured keys
