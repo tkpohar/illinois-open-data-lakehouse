@@ -4,6 +4,9 @@ Bronze is append-only: every version of a record that the source ever returned i
 For each source a view ``bronze.<source>__latest`` exposes exactly one row per key, the
 latest version (see ``docs/bronze-dedupe.md``). ``BronzeStore.compact`` optionally
 rewrites the table to drop superseded versions.
+
+Each non-empty write also records the inferred source schema of that run in
+``bronze._schema_snapshots`` (see ``docs/schema-snapshots.md``).
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from typing import Any
 import duckdb
 
 from lakehouse.logging_setup import get_run_id
+from lakehouse.schema import SchemaInferrer, SchemaSnapshot
 
 DEFAULT_DB = Path("data/lakehouse.duckdb")
 LATEST_SUFFIX = "__latest"
@@ -78,6 +82,19 @@ class BronzeStore:
                 source              VARCHAR PRIMARY KEY,
                 primary_key         VARCHAR,
                 incremental_column  VARCHAR
+            )
+            """
+        )
+        self.con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bronze._schema_snapshots (
+                source        VARCHAR,
+                run_id        VARCHAR,
+                captured_at   TIMESTAMP,
+                record_count  BIGINT,
+                field_count   INTEGER,
+                fingerprint   VARCHAR,
+                schema        JSON
             )
             """
         )
@@ -146,14 +163,17 @@ class BronzeStore:
     ) -> int:
         """Append records; ``run_id`` defaults to the current logging run context.
 
-        Also (re)creates the ``bronze.<source>__latest`` view.
+        Also (re)creates the ``bronze.<source>__latest`` view and, when at least one
+        record was written, stores the run's inferred schema snapshot.
         """
         run_id = run_id or get_run_id()
         self._ensure_table(source)
         self._register_source(source, primary_key, incremental_column)
         started = datetime.now(timezone.utc).replace(tzinfo=None)
         rows, watermark = [], None
+        inferrer = SchemaInferrer(source)
         for seq, rec in enumerate(records):
+            inferrer.observe(rec)
             rows.append((str(rec.get(primary_key)), json.dumps(rec), started, run_id, seq))
             if incremental_column and rec.get(incremental_column):
                 value = rec[incremental_column]
@@ -165,6 +185,8 @@ class BronzeStore:
                 rows,
             )
         self._refresh_latest_view(source)
+        if rows:
+            self._save_snapshot(inferrer.snapshot(run_id), started)
         finished = datetime.now(timezone.utc).replace(tzinfo=None)
         self.con.execute(
             "INSERT INTO bronze._ingestion_log "
@@ -179,6 +201,45 @@ class BronzeStore:
             extra={"source": source, "records": len(rows), "watermark": watermark},
         )
         return len(rows)
+
+    def _save_snapshot(self, snap: SchemaSnapshot, captured_at: datetime) -> None:
+        self.con.execute(
+            "INSERT INTO bronze._schema_snapshots VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                snap.source,
+                snap.run_id,
+                captured_at,
+                snap.record_count,
+                len(snap.fields),
+                snap.fingerprint,
+                snap.to_json(),
+            ],
+        )
+        log.info(
+            "Captured schema of %s: %d fields",
+            snap.source,
+            len(snap.fields),
+            extra={"source": snap.source, "fingerprint": snap.fingerprint},
+        )
+
+    def schema_history(self, source: str) -> list[SchemaSnapshot]:
+        """All schema snapshots for a source, oldest first."""
+        rows = self.con.execute(
+            "SELECT record_count, schema, run_id, captured_at FROM bronze._schema_snapshots "
+            "WHERE source = ? ORDER BY captured_at, rowid",
+            [source],
+        ).fetchall()
+        return [
+            SchemaSnapshot.from_row(source, n, schema, run_id, str(ts))
+            for n, schema, run_id, ts in rows
+        ]
+
+    def schema_snapshot(self, source: str, run_id: str | None = None) -> SchemaSnapshot | None:
+        """The snapshot of a given run, or the most recent one when ``run_id`` is None."""
+        history = self.schema_history(source)
+        if run_id is not None:
+            history = [s for s in history if s.run_id == run_id]
+        return history[-1] if history else None
 
     def latest(self, source: str) -> list[dict[str, Any]]:
         """The latest version of every record, as parsed payload dicts (ordered by key)."""

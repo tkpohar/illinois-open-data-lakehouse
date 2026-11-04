@@ -42,6 +42,7 @@ pip install -e ".[dev]"
 lakehouse sources                                  # list configured sources
 lakehouse ingest chicago_crimes --max-records 5000 # land raw data in bronze
 lakehouse dedupe chicago_crimes --dry-run          # versions vs. distinct keys in bronze
+lakehouse schema chicago_crimes                    # inferred schema of the latest run
 pytest -q                                          # run the test suite
 ```
 
@@ -49,6 +50,8 @@ Add `--log-json` before the subcommand for JSON-lines logs; every ingestion run 
 that is stamped on its log lines and bronze rows (see [docs/logging.md](docs/logging.md)).
 Bronze is append-only; query `bronze.<source>__latest` for one row per key
 (see [docs/bronze-dedupe.md](docs/bronze-dedupe.md)).
+Each run's inferred source schema is snapshotted for drift tracking
+(see [docs/schema-snapshots.md](docs/schema-snapshots.md)).
 
 Set `SOCRATA_APP_TOKEN` (free from the data portal) for higher API rate limits.
 
@@ -60,6 +63,7 @@ src/lakehouse/
   ingestion/socrata.py    paginated, incremental API client with retries
   storage/bronze.py       raw layer, ingestion log, watermarks, latest-per-key view
   logging_setup.py        structured logging + run IDs
+  schema.py               schema inference & snapshots
   cli.py                  `lakehouse` command
 tests/                    unit tests (offline, fixture-based)
 docs/                     design notes and guides

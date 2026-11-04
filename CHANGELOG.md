@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-04 — Milestone 4: schema snapshot per run
+- New `lakehouse.schema`: streaming `SchemaInferrer` with JSON vs. inferred types (integer,
+  number, boolean, date, timestamp from Socrata strings), type widening, nullability,
+  and a shape fingerprint; leading-zero codes like `"018"` stay strings
+- `BronzeStore.write` captures a snapshot per non-empty run into `bronze._schema_snapshots`
+  (same single pass, keyed by `run_id`); `schema_history` / `schema_snapshot` to read them
+- CLI: `lakehouse schema <source> [--run-id ID] [--json] [--history]`
+- Docs: `docs/schema-snapshots.md`; tests in `tests/test_schema.py`
+
 ## 2026-11-03 — Milestone 3: bronze upsert/dedupe (latest record per key)
 - Bronze stays append-only; new `bronze.<source>__latest` view returns one row per key,
   ranked by the source's incremental column, then ingest time, then position in the batch
