@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-05 — Milestone 5: schema-drift detection between runs
+- New `lakehouse.drift`: `compare(old, new)` → `DriftReport` of added/removed fields, type
+  widening/narrowing/incompatible changes and nullability, each graded info/warning/breaking
+  (tuned for Socrata, which omits null keys and returns small incremental samples)
+- `BronzeStore.write` compares each new snapshot with the previous one, logs drift at the
+  matching level and stores changes in `bronze._schema_drift`; `last_drift`, `drift_history`
+- CLI: `lakehouse drift <source> [--from RUN --to RUN] [--json] [--history] [--fail-on SEV]`
+  and `lakehouse ingest --fail-on-drift SEV` (exit status 2, data still lands)
+- Docs: `docs/schema-drift.md`; tests in `tests/test_drift.py`
+
 ## 2026-11-04 — Milestone 4: schema snapshot per run
 - New `lakehouse.schema`: streaming `SchemaInferrer` with JSON vs. inferred types (integer,
   number, boolean, date, timestamp from Socrata strings), type widening, nullability,

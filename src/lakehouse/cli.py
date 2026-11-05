@@ -8,6 +8,7 @@ import os
 import time
 
 from lakehouse.config import load_sources
+from lakehouse.drift import SEVERITIES, compare
 from lakehouse.ingestion.socrata import SocrataClient
 from lakehouse.logging_setup import configure_logging, run_context
 from lakehouse.schema import format_schema
@@ -32,6 +33,12 @@ def main(argv: list[str] | None = None) -> int:
     ingest.add_argument("--full", action="store_true", help="Ignore the stored watermark")
     ingest.add_argument("--db", default=str(DEFAULT_DB))
     ingest.add_argument("--run-id", default=None, help="Override the generated run ID")
+    ingest.add_argument(
+        "--fail-on-drift",
+        choices=SEVERITIES,
+        default=None,
+        help="Exit with status 2 if this run's schema drift reaches this severity",
+    )
 
     dedupe = sub.add_parser(
         "dedupe", help="Report duplicate versions in bronze and compact to the latest per key"
@@ -49,6 +56,20 @@ def main(argv: list[str] | None = None) -> int:
     schema.add_argument("--history", action="store_true", help="List all snapshots")
     schema.add_argument("--json", action="store_true", help="Print the snapshot as JSON")
 
+    drift = sub.add_parser("drift", help="Compare schema snapshots between runs")
+    drift.add_argument("source")
+    drift.add_argument("--db", default=str(DEFAULT_DB))
+    drift.add_argument("--from", dest="from_run", default=None, help="Baseline run ID")
+    drift.add_argument("--to", dest="to_run", default=None, help="Compared run ID")
+    drift.add_argument("--json", action="store_true", help="Print the report as JSON")
+    drift.add_argument("--history", action="store_true", help="List stored drift events")
+    drift.add_argument(
+        "--fail-on",
+        choices=SEVERITIES,
+        default=None,
+        help="Exit with status 2 if drift reaches this severity",
+    )
+
     args = parser.parse_args(argv)
     configure_logging(level=args.log_level.upper(), json_output=args.log_json)
     sources = load_sources()
@@ -63,6 +84,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "schema":
         return _schema(args)
+
+    if args.command == "drift":
+        return _drift(args)
 
     if args.source not in sources:
         parser.error(f"Unknown source '{args.source}'. Try: {', '.join(sources)}")
@@ -86,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
                 incremental_column=src.incremental_column,
                 run_id=run_id,
             )
+            drift_report = store.last_drift
         except Exception:
             log.exception("Ingestion failed for %s", src.name, extra={"source": src.name})
             return 1
@@ -100,6 +125,14 @@ def main(argv: list[str] | None = None) -> int:
                 "duration_s": round(time.monotonic() - t0, 3),
             },
         )
+        if args.fail_on_drift and drift_report and drift_report.at_least(args.fail_on_drift):
+            log.error(
+                "Schema drift for %s reached '%s'; failing as requested",
+                src.name,
+                drift_report.severity,
+                extra={"source": src.name, "drift_severity": drift_report.severity},
+            )
+            return 2
     return 0
 
 
@@ -152,6 +185,50 @@ def _schema(args: argparse.Namespace) -> int:
             extra={"source": args.source},
         )
         return 1
+    return 0
+
+
+def _drift(args: argparse.Namespace) -> int:
+    store = BronzeStore(args.db)
+    try:
+        if args.history:
+            events = store.drift_history(args.source)
+            for e in events:
+                types = f" {e['old_type'] or '-'} -> {e['new_type'] or '-'}"
+                print(
+                    f"{e['detected_at']}  {e['old_run_id']} -> {e['new_run_id']}  "
+                    f"[{e['severity']}] {e['kind']} {e['field']}{types}"
+                )
+            if not events:
+                print(f"no drift recorded for {args.source}")
+            return 0
+        history = store.schema_history(args.source)
+    finally:
+        store.close()
+
+    by_run = {s.run_id: s for s in history}
+    for run in (args.from_run, args.to_run):
+        if run is not None and run not in by_run:
+            log.error("No schema snapshot for run '%s'", run, extra={"source": args.source})
+            return 1
+    new = by_run[args.to_run] if args.to_run else (history[-1] if history else None)
+    if args.from_run:
+        old = by_run[args.from_run]
+    else:
+        earlier = history[: history.index(new)] if new is not None else []
+        old = earlier[-1] if earlier else None
+    if old is None or new is None:
+        log.error(
+            "Need two schema snapshots of '%s' to compare",
+            args.source,
+            extra={"source": args.source},
+        )
+        return 1
+
+    report = compare(old, new)
+    print(report.to_json() if args.json else report.format())
+    if args.fail_on and report.at_least(args.fail_on):
+        return 2
     return 0
 
 

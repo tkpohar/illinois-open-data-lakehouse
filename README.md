@@ -43,6 +43,7 @@ lakehouse sources                                  # list configured sources
 lakehouse ingest chicago_crimes --max-records 5000 # land raw data in bronze
 lakehouse dedupe chicago_crimes --dry-run          # versions vs. distinct keys in bronze
 lakehouse schema chicago_crimes                    # inferred schema of the latest run
+lakehouse drift chicago_crimes                     # schema changes vs. the previous run
 pytest -q                                          # run the test suite
 ```
 
@@ -51,7 +52,8 @@ that is stamped on its log lines and bronze rows (see [docs/logging.md](docs/log
 Bronze is append-only; query `bronze.<source>__latest` for one row per key
 (see [docs/bronze-dedupe.md](docs/bronze-dedupe.md)).
 Each run's inferred source schema is snapshotted for drift tracking
-(see [docs/schema-snapshots.md](docs/schema-snapshots.md)).
+(see [docs/schema-snapshots.md](docs/schema-snapshots.md)), and drift between runs is graded
+info / warning / breaking (see [docs/schema-drift.md](docs/schema-drift.md)).
 
 Set `SOCRATA_APP_TOKEN` (free from the data portal) for higher API rate limits.
 
@@ -64,6 +66,7 @@ src/lakehouse/
   storage/bronze.py       raw layer, ingestion log, watermarks, latest-per-key view
   logging_setup.py        structured logging + run IDs
   schema.py               schema inference & snapshots
+  drift.py                schema-drift detection between runs
   cli.py                  `lakehouse` command
 tests/                    unit tests (offline, fixture-based)
 docs/                     design notes and guides

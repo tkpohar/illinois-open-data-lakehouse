@@ -2,7 +2,7 @@
 
 Every ingestion run that lands at least one record also records **the schema of what the
 source returned in that run**. Snapshots are the basis for schema-drift detection
-(milestone 5) and document how each source actually looks, not how it is described.
+([schema-drift.md](schema-drift.md)) and document how each source actually looks, not how it is described.
 
 ## How it works
 

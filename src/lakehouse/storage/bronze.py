@@ -6,7 +6,9 @@ latest version (see ``docs/bronze-dedupe.md``). ``BronzeStore.compact`` optional
 rewrites the table to drop superseded versions.
 
 Each non-empty write also records the inferred source schema of that run in
-``bronze._schema_snapshots`` (see ``docs/schema-snapshots.md``).
+``bronze._schema_snapshots`` (see ``docs/schema-snapshots.md``) and compares it with the
+previous snapshot; any drift is logged and stored in ``bronze._schema_drift`` (see
+``docs/schema-drift.md``).
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from typing import Any
 
 import duckdb
 
+from lakehouse.drift import DriftReport, compare
 from lakehouse.logging_setup import get_run_id
 from lakehouse.schema import SchemaInferrer, SchemaSnapshot
 
@@ -98,6 +101,22 @@ class BronzeStore:
             )
             """
         )
+        self.con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bronze._schema_drift (
+                source        VARCHAR,
+                old_run_id    VARCHAR,
+                new_run_id    VARCHAR,
+                detected_at   TIMESTAMP,
+                field         VARCHAR,
+                kind          VARCHAR,
+                severity      VARCHAR,
+                old_type      VARCHAR,
+                new_type      VARCHAR
+            )
+            """
+        )
+        self.last_drift: DriftReport | None = None
 
     def _ensure_table(self, source: str) -> None:
         self.con.execute(
@@ -164,7 +183,8 @@ class BronzeStore:
         """Append records; ``run_id`` defaults to the current logging run context.
 
         Also (re)creates the ``bronze.<source>__latest`` view and, when at least one
-        record was written, stores the run's inferred schema snapshot.
+        record was written, stores the run's inferred schema snapshot, compares it with
+        the previous one and records any drift (afterwards available as ``last_drift``).
         """
         run_id = run_id or get_run_id()
         self._ensure_table(source)
@@ -185,8 +205,14 @@ class BronzeStore:
                 rows,
             )
         self._refresh_latest_view(source)
+        self.last_drift = None
         if rows:
-            self._save_snapshot(inferrer.snapshot(run_id), started)
+            snap = inferrer.snapshot(run_id)
+            previous = self.schema_snapshot(source)
+            self._save_snapshot(snap, started)
+            if previous is not None:
+                self.last_drift = compare(previous, snap)
+                self._save_drift(self.last_drift, started)
         finished = datetime.now(timezone.utc).replace(tzinfo=None)
         self.con.execute(
             "INSERT INTO bronze._ingestion_log "
@@ -221,6 +247,52 @@ class BronzeStore:
             len(snap.fields),
             extra={"source": snap.source, "fingerprint": snap.fingerprint},
         )
+
+    def _save_drift(self, report: DriftReport, detected_at: datetime) -> None:
+        if not report.has_drift:
+            return
+        self.con.executemany(
+            "INSERT INTO bronze._schema_drift VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                [
+                    report.source,
+                    report.old_run_id,
+                    report.new_run_id,
+                    detected_at,
+                    c.field,
+                    c.kind,
+                    c.severity,
+                    c.old,
+                    c.new,
+                ]
+                for c in report.changes
+            ],
+        )
+        level = {"info": logging.INFO, "warning": logging.WARNING}.get(
+            report.severity, logging.ERROR
+        )
+        log.log(
+            level,
+            "Schema drift in %s (%s): %s",
+            report.source,
+            report.severity,
+            "; ".join(c.describe() for c in report.changes),
+            extra={
+                "source": report.source,
+                "drift_severity": report.severity,
+                "drift_changes": len(report.changes),
+                "previous_run_id": report.old_run_id,
+            },
+        )
+
+    def drift_history(self, source: str) -> list[dict[str, Any]]:
+        """Stored drift events for a source, oldest first."""
+        cur = self.con.execute(
+            "SELECT * FROM bronze._schema_drift WHERE source = ? ORDER BY detected_at, rowid",
+            [source],
+        )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row, strict=True)) for row in cur.fetchall()]
 
     def schema_history(self, source: str) -> list[SchemaSnapshot]:
         """All schema snapshots for a source, oldest first."""
