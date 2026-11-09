@@ -32,6 +32,9 @@ It is built step by step; see [ROADMAP.md](ROADMAP.md) for what's done and what'
 | Chicago Crimes (2001–present) | `ijzp-q8t2` | `updated_on` |
 | Chicago 311 Service Requests | `v6vf-nfxy` | `last_modified_date` |
 | Chicago Taxi Trips | `wrvz-psew` | `trip_start_timestamp` |
+| Illinois: City of Urbana Police Arrests (data.illinois.gov) | `s2ps-ct5e` | `:updated_at` (Socrata system field) |
+
+See [docs/sources.md](docs/sources.md) for keys, system fields and how to add a source.
 
 ## Quick start
 

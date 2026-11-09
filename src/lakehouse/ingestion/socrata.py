@@ -68,6 +68,9 @@ class SocrataClient:
                 if limit <= 0:
                     return
             params: dict[str, Any] = {"$limit": limit, "$offset": offset, "$order": order}
+            if source.uses_system_fields:
+                # System fields (:id, :created_at, :updated_at) are omitted unless selected.
+                params["$select"] = ":*, *"
             if since and source.incremental_column:
                 params["$where"] = f"{source.incremental_column} > '{since}'"
 

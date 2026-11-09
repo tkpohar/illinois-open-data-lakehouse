@@ -21,3 +21,13 @@ sources:
     description: Taxi Trips (2013-2023)
     incremental_column: trip_start_timestamp
     primary_key: trip_id
+
+  # State of Illinois portal. The dataset has no documented unique column, so the
+  # Socrata system fields are used: `:id` (stable row ID) and `:updated_at` (row
+  # last-modified time). See docs/sources.md.
+  illinois_urbana_arrests:
+    domain: data.illinois.gov
+    dataset_id: s2ps-ct5e
+    description: City of Urbana Police Arrests (data.illinois.gov, up to 2023)
+    incremental_column: ":updated_at"
+    primary_key: ":id"

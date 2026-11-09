@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-09 — Milestone 6: State of Illinois dataset as a fourth source
+- New source `illinois_urbana_arrests`: City of Urbana Police Arrests (`s2ps-ct5e`) on
+  data.illinois.gov, the lakehouse's second portal
+- Keyed on Socrata system fields `:id` / `:updated_at` because the dataset has no unique
+  business key (`incident_number` repeats across arrests in one incident)
+- `SourceConfig.uses_system_fields`; `SocrataClient` adds `$select=:*, *` for such sources
+- Synthetic fixture `tests/fixtures/illinois_urbana_arrests_sample.json`
+- Docs: `docs/sources.md`; tests in `tests/test_illinois_source.py`
+
 ## 2026-11-05 — Milestone 5: schema-drift detection between runs
 - New `lakehouse.drift`: `compare(old, new)` → `DriftReport` of added/removed fields, type
   widening/narrowing/incompatible changes and nullability, each graded info/warning/breaking

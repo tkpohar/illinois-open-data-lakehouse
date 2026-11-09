@@ -9,7 +9,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 3. Upsert/dedupe strategy in bronze (latest record per key)
 - [x] 4. Schema snapshot: infer & store source schema per run
 - [x] 5. Schema-drift detection between runs
-- [ ] 6. Add Illinois state dataset (data.illinois.gov) as a fourth source
+- [x] 6. Add Illinois state dataset (data.illinois.gov) as a fourth source
 - [ ] 7. Parquet export of bronze tables (partitioned by ingest date)
 - [ ] 8. Rate-limit handling (HTTP 429, Retry-After)
 - [ ] 9. Ingestion metrics report (`lakehouse status`)

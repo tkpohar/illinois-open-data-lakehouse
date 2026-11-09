@@ -23,6 +23,15 @@ class SourceConfig:
     def endpoint(self) -> str:
         return f"https://{self.domain}/resource/{self.dataset_id}.json"
 
+    @property
+    def uses_system_fields(self) -> bool:
+        """True when the key or incremental column is a Socrata system field (``:id``,
+        ``:updated_at``, ...). Those are only returned when requested with ``$select``."""
+        return any(
+            col is not None and col.startswith(":")
+            for col in (self.primary_key, self.incremental_column)
+        )
+
 
 def load_sources(path: Path | str = DEFAULT_CONFIG) -> dict[str, SourceConfig]:
     raw = yaml.safe_load(Path(path).read_text()) or {}

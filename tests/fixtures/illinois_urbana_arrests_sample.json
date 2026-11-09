@@ -1,0 +1,6 @@
+[
+  {":id": "row-aaaa-0001", ":created_at": "2025-10-10T14:02:11.000Z", ":updated_at": "2025-10-10T14:02:11.000Z", "incident_number": "U23-000101", "arrest_code": "A", "date_of_arrest": "2023-01-04T09:30:00.000", "year_of_arrest": "2023", "month_of_arrest": "1", "arrest_type_description": "CUSTODIAL ARREST"},
+  {":id": "row-aaaa-0002", ":created_at": "2025-10-10T14:02:11.000Z", ":updated_at": "2025-10-10T14:02:11.000Z", "incident_number": "U23-000101", "arrest_code": "B", "date_of_arrest": "2023-01-04T09:45:00.000", "year_of_arrest": "2023", "month_of_arrest": "1", "arrest_type_description": "CUSTODIAL ARREST"},
+  {":id": "row-aaaa-0003", ":created_at": "2025-10-10T14:02:11.000Z", ":updated_at": "2025-10-10T14:02:12.000Z", "incident_number": "U23-000257", "arrest_code": "A", "date_of_arrest": "2023-02-11T22:10:00.000", "year_of_arrest": "2023", "month_of_arrest": "2", "arrest_type_description": "NOTICE TO APPEAR"},
+  {":id": "row-aaaa-0004", ":created_at": "2025-10-10T14:02:11.000Z", ":updated_at": "2025-10-10T14:02:12.000Z", "incident_number": "U23-000390", "arrest_code": "A", "date_of_arrest": "2023-03-02T16:55:00.000", "year_of_arrest": "2023", "month_of_arrest": "3", "arrest_type_description": "CUSTODIAL ARREST"}
+]
