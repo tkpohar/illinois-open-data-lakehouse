@@ -47,6 +47,7 @@ lakehouse ingest chicago_crimes --max-records 5000 # land raw data in bronze
 lakehouse dedupe chicago_crimes --dry-run          # versions vs. distinct keys in bronze
 lakehouse schema chicago_crimes                    # inferred schema of the latest run
 lakehouse drift chicago_crimes                     # schema changes vs. the previous run
+lakehouse export                                   # bronze -> Parquet, partitioned by ingest date
 pytest -q                                          # run the test suite
 ```
 
@@ -57,6 +58,8 @@ Bronze is append-only; query `bronze.<source>__latest` for one row per key
 Each run's inferred source schema is snapshotted for drift tracking
 (see [docs/schema-snapshots.md](docs/schema-snapshots.md)), and drift between runs is graded
 info / warning / breaking (see [docs/schema-drift.md](docs/schema-drift.md)).
+Bronze can be exported as ingest-date-partitioned Parquet
+(see [docs/parquet-export.md](docs/parquet-export.md)).
 
 Set `SOCRATA_APP_TOKEN` (free from the data portal) for higher API rate limits.
 
@@ -67,6 +70,7 @@ config/sources.yaml       dataset definitions
 src/lakehouse/
   ingestion/socrata.py    paginated, incremental API client with retries
   storage/bronze.py       raw layer, ingestion log, watermarks, latest-per-key view
+  storage/export.py       Parquet export partitioned by ingest date
   logging_setup.py        structured logging + run IDs
   schema.py               schema inference & snapshots
   drift.py                schema-drift detection between runs

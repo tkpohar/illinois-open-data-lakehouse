@@ -13,6 +13,7 @@ from lakehouse.ingestion.socrata import SocrataClient
 from lakehouse.logging_setup import configure_logging, run_context
 from lakehouse.schema import format_schema
 from lakehouse.storage.bronze import DEFAULT_DB, BronzeStore
+from lakehouse.storage.export import DEFAULT_EXPORT_DIR, export_all, export_source
 
 log = logging.getLogger("lakehouse.cli")
 
@@ -70,6 +71,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Exit with status 2 if drift reaches this severity",
     )
 
+    export = sub.add_parser(
+        "export", help="Export bronze tables to Parquet, partitioned by ingest date"
+    )
+    export.add_argument("source", nargs="?", help="Source to export (default: all)")
+    export.add_argument("--db", default=str(DEFAULT_DB))
+    export.add_argument("--out", default=str(DEFAULT_EXPORT_DIR), help="Output directory")
+    export.add_argument(
+        "--latest", action="store_true", help="Export the latest-per-key view instead"
+    )
+
     args = parser.parse_args(argv)
     configure_logging(level=args.log_level.upper(), json_output=args.log_json)
     sources = load_sources()
@@ -87,6 +98,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "drift":
         return _drift(args)
+
+    if args.command == "export":
+        return _export(args)
 
     if args.source not in sources:
         parser.error(f"Unknown source '{args.source}'. Try: {', '.join(sources)}")
@@ -229,6 +243,25 @@ def _drift(args: argparse.Namespace) -> int:
     print(report.to_json() if args.json else report.format())
     if args.fail_on and report.at_least(args.fail_on):
         return 2
+    return 0
+
+
+def _export(args: argparse.Namespace) -> int:
+    store = BronzeStore(args.db)
+    try:
+        if args.source:
+            results = [export_source(store, args.source, args.out, args.latest)]
+        else:
+            results = export_all(store, args.out, args.latest)
+    except ValueError as exc:
+        log.error("%s", exc, extra={"source": args.source})
+        return 1
+    finally:
+        store.close()
+    for r in results:
+        print(f"{r.source}: {r.rows} rows in {len(r.partitions)} partitions -> {r.path}")
+    if not results:
+        print("no bronze tables to export")
     return 0
 
 

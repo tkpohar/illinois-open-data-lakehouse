@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-10 — Milestone 7: Parquet export of bronze (partitioned by ingest date)
+- New `lakehouse.storage.export`: `export_source` / `export_all` write bronze tables (or
+  their `__latest` views) as Hive-partitioned Parquet (`ingest_date=YYYY-MM-DD/`) via
+  DuckDB `COPY`, with per-partition row counts; `read_export` queries them back
+- Exports rewrite the source directory, so they are idempotent and drop stale partitions
+- CLI: `lakehouse export [source] [--latest] [--out DIR]`
+- Docs: `docs/parquet-export.md`; tests in `tests/test_export.py`
+
 ## 2026-11-09 — Milestone 6: State of Illinois dataset as a fourth source
 - New source `illinois_urbana_arrests`: City of Urbana Police Arrests (`s2ps-ct5e`) on
   data.illinois.gov, the lakehouse's second portal

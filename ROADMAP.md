@@ -10,7 +10,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 4. Schema snapshot: infer & store source schema per run
 - [x] 5. Schema-drift detection between runs
 - [x] 6. Add Illinois state dataset (data.illinois.gov) as a fourth source
-- [ ] 7. Parquet export of bronze tables (partitioned by ingest date)
+- [x] 7. Parquet export of bronze tables (partitioned by ingest date)
 - [ ] 8. Rate-limit handling (HTTP 429, Retry-After)
 - [ ] 9. Ingestion metrics report (`lakehouse status`)
 - [ ] 10. Docs: architecture decision record (ADR-001 DuckDB vs Postgres)
