@@ -61,14 +61,15 @@ info / warning / breaking (see [docs/schema-drift.md](docs/schema-drift.md)).
 Bronze can be exported as ingest-date-partitioned Parquet
 (see [docs/parquet-export.md](docs/parquet-export.md)).
 
-Set `SOCRATA_APP_TOKEN` (free from the data portal) for higher API rate limits.
+Set `SOCRATA_APP_TOKEN` (free from the data portal) for higher API rate limits. HTTP 429 /
+`Retry-After` responses are waited out automatically (see [docs/rate-limits.md](docs/rate-limits.md)).
 
 ## Project layout
 
 ```
 config/sources.yaml       dataset definitions
 src/lakehouse/
-  ingestion/socrata.py    paginated, incremental API client with retries
+  ingestion/socrata.py    paginated, incremental API client with retries & rate-limit handling
   storage/bronze.py       raw layer, ingestion log, watermarks, latest-per-key view
   storage/export.py       Parquet export partitioned by ingest date
   logging_setup.py        structured logging + run IDs

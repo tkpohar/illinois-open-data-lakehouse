@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-11 — Milestone 8: rate-limit handling (HTTP 429, Retry-After)
+- `SocrataClient` treats HTTP 429 (and 503 with `Retry-After`) as rate limits: waits as
+  long as `Retry-After` asks (seconds or HTTP date), else exponential backoff
+- Separate budgets: `max_rate_limit_retries` (default 5) vs. `max_retries` for other errors;
+  waits above `max_retry_after` (default 300 s) raise `RateLimitError` instead of sleeping
+- `parse_retry_after`, `RateLimitError`, per-client `RequestStats` (requests, retries,
+  rate_limited, waited_s); structured WARNING log per wait; injectable `sleep`
+- Docs: `docs/rate-limits.md`; tests in `tests/test_rate_limit.py`
+
 ## 2026-11-10 — Milestone 7: Parquet export of bronze (partitioned by ingest date)
 - New `lakehouse.storage.export`: `export_source` / `export_all` write bronze tables (or
   their `__latest` views) as Hive-partitioned Parquet (`ingest_date=YYYY-MM-DD/`) via
