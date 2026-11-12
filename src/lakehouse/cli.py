@@ -12,6 +12,7 @@ from lakehouse.drift import SEVERITIES, compare
 from lakehouse.ingestion.socrata import SocrataClient
 from lakehouse.logging_setup import configure_logging, run_context
 from lakehouse.schema import format_schema
+from lakehouse.status import collect_status, format_status, status_json
 from lakehouse.storage.bronze import DEFAULT_DB, BronzeStore
 from lakehouse.storage.export import DEFAULT_EXPORT_DIR, export_all, export_source
 
@@ -81,6 +82,16 @@ def main(argv: list[str] | None = None) -> int:
         "--latest", action="store_true", help="Export the latest-per-key view instead"
     )
 
+    status = sub.add_parser("status", help="Ingestion metrics per source")
+    status.add_argument("--db", default=str(DEFAULT_DB))
+    status.add_argument("--json", action="store_true", help="Print metrics as JSON")
+    status.add_argument(
+        "--stale-hours",
+        type=float,
+        default=36.0,
+        help="Flag sources whose last run is older than this (default: 36)",
+    )
+
     args = parser.parse_args(argv)
     configure_logging(level=args.log_level.upper(), json_output=args.log_json)
     sources = load_sources()
@@ -101,6 +112,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "export":
         return _export(args)
+
+    if args.command == "status":
+        store = BronzeStore(args.db)
+        try:
+            report = collect_status(store, sources, stale_hours=args.stale_hours)
+        finally:
+            store.close()
+        print(status_json(report) if args.json else format_status(report))
+        return 0
 
     if args.source not in sources:
         parser.error(f"Unknown source '{args.source}'. Try: {', '.join(sources)}")
@@ -123,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
                 primary_key=src.primary_key,
                 incremental_column=src.incremental_column,
                 run_id=run_id,
+                request_stats=getattr(client, "stats", None),
             )
             drift_report = store.last_drift
         except Exception:

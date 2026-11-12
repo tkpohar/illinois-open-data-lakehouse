@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-12 — Milestone 9: ingestion metrics report (`lakehouse status`)
+- New `lakehouse.status`: per-source rows/keys/duplicates, run counts, last run (id, time,
+  records, duration), freshness and staleness, watermark, recent average, API request
+  metrics, latest schema fingerprint and last drift severity; totals across sources
+- `bronze._ingestion_log` now stores `api_requests`, `api_retries`, `rate_limited`,
+  `waited_s` per run from `SocrataClient.stats` (`BronzeStore.write(request_stats=...)`);
+  older databases migrated in place
+- CLI: `lakehouse status [--json] [--stale-hours H]`; lists never-ingested configured
+  sources and unconfigured bronze tables
+- Docs: `docs/status.md`; tests in `tests/test_status.py`
+
 ## 2026-11-11 — Milestone 8: rate-limit handling (HTTP 429, Retry-After)
 - `SocrataClient` treats HTTP 429 (and 503 with `Retry-After`) as rate limits: waits as
   long as `Retry-After` asks (seconds or HTTP date), else exponential backoff

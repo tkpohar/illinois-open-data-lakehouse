@@ -12,7 +12,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 6. Add Illinois state dataset (data.illinois.gov) as a fourth source
 - [x] 7. Parquet export of bronze tables (partitioned by ingest date)
 - [x] 8. Rate-limit handling (HTTP 429, Retry-After)
-- [ ] 9. Ingestion metrics report (`lakehouse status`)
+- [x] 9. Ingestion metrics report (`lakehouse status`)
 - [ ] 10. Docs: architecture decision record (ADR-001 DuckDB vs Postgres)
 
 ## Phase 2 — Silver layer (cleaning & conformance)

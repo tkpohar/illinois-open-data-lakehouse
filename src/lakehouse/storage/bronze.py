@@ -29,6 +29,12 @@ from lakehouse.schema import SchemaInferrer, SchemaSnapshot
 
 DEFAULT_DB = Path("data/lakehouse.duckdb")
 LATEST_SUFFIX = "__latest"
+INGESTION_METRIC_COLUMNS = (
+    ("api_requests", "BIGINT"),
+    ("api_retries", "BIGINT"),
+    ("rate_limited", "BIGINT"),
+    ("waited_s", "DOUBLE"),
+)
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +85,11 @@ class BronzeStore:
         self.con.execute(
             "ALTER TABLE bronze._ingestion_log ADD COLUMN IF NOT EXISTS run_id VARCHAR"
         )
+        # API request metrics per run (NULL for runs written without a client).
+        for col, typ in INGESTION_METRIC_COLUMNS:
+            self.con.execute(
+                f"ALTER TABLE bronze._ingestion_log ADD COLUMN IF NOT EXISTS {col} {typ}"
+            )
         self.con.execute(
             """
             CREATE TABLE IF NOT EXISTS bronze._sources (
@@ -179,8 +190,12 @@ class BronzeStore:
         primary_key: str,
         incremental_column: str | None = None,
         run_id: str | None = None,
+        request_stats: Any = None,
     ) -> int:
         """Append records; ``run_id`` defaults to the current logging run context.
+
+        ``request_stats`` (e.g. ``SocrataClient.stats``) is read *after* the records are
+        consumed and stored with the run in ``bronze._ingestion_log``.
 
         Also (re)creates the ``bronze.<source>__latest`` view and, when at least one
         record was written, stores the run's inferred schema snapshot, compares it with
@@ -214,11 +229,16 @@ class BronzeStore:
                 self.last_drift = compare(previous, snap)
                 self._save_drift(self.last_drift, started)
         finished = datetime.now(timezone.utc).replace(tzinfo=None)
+        metrics = [
+            getattr(request_stats, attr, None)
+            for attr in ("requests", "retries", "rate_limited", "waited_s")
+        ]
         self.con.execute(
             "INSERT INTO bronze._ingestion_log "
-            "(source, run_started, run_finished, records, watermark, run_id) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            [source, started, finished, len(rows), watermark, run_id],
+            "(source, run_started, run_finished, records, watermark, run_id, "
+            "api_requests, api_retries, rate_limited, waited_s) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [source, started, finished, len(rows), watermark, run_id, *metrics],
         )
         log.info(
             "Wrote %d records to bronze.%s",
