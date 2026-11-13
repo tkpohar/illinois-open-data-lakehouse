@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-13 — Milestone 10: ADR-001 DuckDB vs Postgres (Phase 1 complete)
+- New `docs/adr/`: index, ADR template and ADR-0001 recording why DuckDB (embedded,
+  columnar, native Parquet) is the lakehouse engine instead of Postgres, with the accepted
+  trade-offs (single writer, no serving layer, DuckDB-specific SQL kept in storage modules)
+  and the conditions for revisiting it
+- New `tests/test_docs.py`: every relative link in README and docs resolves; ADRs have a
+  numbered title, valid status and date, the required sections in order, sequential
+  numbering, and an up-to-date entry in the ADR index
+
 ## 2026-11-12 — Milestone 9: ingestion metrics report (`lakehouse status`)
 - New `lakehouse.status`: per-source rows/keys/duplicates, run counts, last run (id, time,
   records, duration), freshness and staleness, watermark, recent average, API request

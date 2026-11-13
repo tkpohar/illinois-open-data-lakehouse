@@ -25,6 +25,9 @@ It is built step by step; see [ROADMAP.md](ROADMAP.md) for what's done and what'
           Analytics · dashboards · data-quality reports
 ```
 
+Key design decisions are recorded as ADRs in [docs/adr](docs/adr/README.md), starting with
+[ADR-0001: DuckDB vs Postgres](docs/adr/0001-duckdb-vs-postgres.md).
+
 ## Data sources
 
 | Source | Dataset | Incremental column |
