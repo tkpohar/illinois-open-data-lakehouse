@@ -12,11 +12,14 @@ from lakehouse.drift import SEVERITIES, compare
 from lakehouse.ingestion.socrata import SocrataClient
 from lakehouse.logging_setup import configure_logging, run_context
 from lakehouse.schema import format_schema
+from lakehouse.silver import crimes as silver_crimes
 from lakehouse.status import collect_status, format_status, status_json
 from lakehouse.storage.bronze import DEFAULT_DB, BronzeStore
 from lakehouse.storage.export import DEFAULT_EXPORT_DIR, export_all, export_source
 
 log = logging.getLogger("lakehouse.cli")
+
+SILVER_BUILDERS = {"crimes": silver_crimes.build}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -92,6 +95,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Flag sources whose last run is older than this (default: 36)",
     )
 
+    silver = sub.add_parser("silver", help="Build a silver table from bronze")
+    silver.add_argument("table", choices=sorted(SILVER_BUILDERS))
+    silver.add_argument("--db", default=str(DEFAULT_DB))
+
     args = parser.parse_args(argv)
     configure_logging(level=args.log_level.upper(), json_output=args.log_json)
     sources = load_sources()
@@ -112,6 +119,20 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "export":
         return _export(args)
+
+    if args.command == "silver":
+        store = BronzeStore(args.db)
+        try:
+            result = SILVER_BUILDERS[args.table](store)
+        except ValueError as exc:
+            log.error("%s", exc, extra={"table": args.table})
+            return 1
+        finally:
+            store.close()
+        print(f"{result.table}: {result.rows} rows from {result.source}")
+        for col, n in sorted(result.cast_failures.items()):
+            print(f"  cast failures: {col}={n}")
+        return 0
 
     if args.command == "status":
         store = BronzeStore(args.db)
