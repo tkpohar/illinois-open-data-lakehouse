@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-14 — Milestone 11: silver crimes (typed columns, timestamps, booleans)
+- New `lakehouse.silver.typing`: declarative `Column` specs (text, upper, code, int,
+  double, bool, timestamp) compiled to DuckDB SQL with safe casts; per-column cast-failure
+  counts; transactional `build_typed_table` with a `silver._build_log`
+- New `silver.crimes` (21 typed columns + lineage) built from
+  `bronze.chicago_crimes__latest`: one row per crime, zero-padded IUCR/beat codes,
+  integer district/ward/community area, Y/N/true/false booleans, local-time timestamps
+- CLI: `lakehouse silver crimes`
+- Docs: `docs/silver-crimes.md`; tests in `tests/test_silver_crimes.py`
+
 ## 2026-11-13 — Milestone 10: ADR-001 DuckDB vs Postgres (Phase 1 complete)
 - New `docs/adr/`: index, ADR template and ADR-0001 recording why DuckDB (embedded,
   columnar, native Parquet) is the lakehouse engine instead of Postgres, with the accepted

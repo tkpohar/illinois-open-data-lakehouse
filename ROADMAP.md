@@ -16,7 +16,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 10. Docs: architecture decision record (ADR-001 DuckDB vs Postgres)
 
 ## Phase 2 — Silver layer (cleaning & conformance)
-- [ ] 11. Silver crimes: typed columns, timestamps, booleans
+- [x] 11. Silver crimes: typed columns, timestamps, booleans
 - [ ] 12. Silver 311: typed columns, status normalization
 - [ ] 13. Silver taxi trips: fares, durations, outlier flags
 - [ ] 14. Geospatial cleanup: lat/long validation, community-area lookup

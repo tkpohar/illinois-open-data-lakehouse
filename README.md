@@ -52,6 +52,7 @@ lakehouse schema chicago_crimes                    # inferred schema of the late
 lakehouse drift chicago_crimes                     # schema changes vs. the previous run
 lakehouse export                                   # bronze -> Parquet, partitioned by ingest date
 lakehouse status                                   # per-source ingestion metrics & freshness
+lakehouse silver crimes                            # typed, one-row-per-crime silver table
 pytest -q                                          # run the test suite
 ```
 
@@ -66,6 +67,7 @@ Bronze can be exported as ingest-date-partitioned Parquet
 (see [docs/parquet-export.md](docs/parquet-export.md)).
 `lakehouse status` summarises freshness, volumes, API pressure and drift per source
 (see [docs/status.md](docs/status.md)).
+The silver layer starts with `silver.crimes` (see [docs/silver-crimes.md](docs/silver-crimes.md)).
 
 Set `SOCRATA_APP_TOKEN` (free from the data portal) for higher API rate limits. HTTP 429 /
 `Retry-After` responses are waited out automatically (see [docs/rate-limits.md](docs/rate-limits.md)).
@@ -82,6 +84,8 @@ src/lakehouse/
   schema.py               schema inference & snapshots
   drift.py                schema-drift detection between runs
   status.py               ingestion metrics report
+  silver/typing.py        declarative column typing for silver tables
+  silver/crimes.py        silver.crimes
   cli.py                  `lakehouse` command
 tests/                    unit tests (offline, fixture-based)
 docs/                     design notes and guides
