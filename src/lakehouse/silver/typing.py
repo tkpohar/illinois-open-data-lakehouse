@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -105,6 +105,7 @@ class BuildResult:
     rows: int
     cast_failures: dict[str, int] = field(default_factory=dict)
     built_at: str | None = None
+    quality: dict[str, int] = field(default_factory=dict)  # check name -> violating rows
 
     @property
     def total_cast_failures(self) -> int:
@@ -117,12 +118,17 @@ def build_typed_table(
     target: str,
     columns: Sequence[Column],
     where: str | None = None,
+    derived: Sequence[tuple[str, str]] = (),
+    quality_checks: Mapping[str, str] | None = None,
 ) -> BuildResult:
     """(Re)build ``target`` from the JSON ``payload`` of ``source_relation``.
 
     Lineage columns ``record_key``, ``run_id`` and ``ingested_at`` are carried over from
-    bronze, and ``silver_built_at`` records the build time. The build and its entry in
-    ``silver._build_log`` happen in one transaction.
+    bronze, and ``silver_built_at`` records the build time. ``derived`` adds
+    ``(name, sql)`` columns computed from the typed columns. ``quality_checks`` maps a
+    check name to a SQL condition over the built table; the number of rows matching each
+    condition is recorded (rows are kept). The build and its entry in
+    ``<schema>._build_log`` happen in one transaction.
     """
     schema = target.split(".")[0]
     built_at = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -139,13 +145,23 @@ def build_typed_table(
         f"CREATE TABLE IF NOT EXISTS {schema}._build_log (table_name VARCHAR, "
         "source VARCHAR, built_at TIMESTAMP, rows BIGINT, cast_failures JSON)"
     )
+    con.execute(f"ALTER TABLE {schema}._build_log ADD COLUMN IF NOT EXISTS quality JSON")
+    typed_select = (
+        f"SELECT {', '.join(selects + lineage)} FROM {source_relation}{filter_sql}"
+    )
+    derived_sql = "".join(f", {expr} AS {name}" for name, expr in derived)
     con.execute("BEGIN TRANSACTION")
     try:
         con.execute(
-            f"CREATE OR REPLACE TABLE {target} AS SELECT {', '.join(selects + lineage)} "
-            f"FROM {source_relation}{filter_sql} ORDER BY record_key",
+            f"CREATE OR REPLACE TABLE {target} AS SELECT t.*{derived_sql} "
+            f"FROM ({typed_select}) t ORDER BY record_key",
             [built_at],
         )
+        quality = {}
+        for name, condition in (quality_checks or {}).items():
+            quality[name] = int(
+                con.execute(f"SELECT count(*) FROM {target} WHERE {condition}").fetchone()[0]
+            )
         counts = con.execute(
             f"SELECT count(*), {', '.join(failure_sums)} FROM {source_relation}{filter_sql}"
         ).fetchone()
@@ -158,22 +174,38 @@ def build_typed_table(
             rows=int(counts[0]),
             cast_failures=failures,
             built_at=built_at.isoformat(sep=" ", timespec="seconds"),
+            quality=quality,
         )
         con.execute(
-            f"INSERT INTO {schema}._build_log VALUES (?, ?, ?, ?, ?)",
-            [target, source_relation, built_at, result.rows, json.dumps(failures)],
+            f"INSERT INTO {schema}._build_log "
+            "(table_name, source, built_at, rows, cast_failures, quality) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                target,
+                source_relation,
+                built_at,
+                result.rows,
+                json.dumps(failures),
+                json.dumps(quality),
+            ],
         )
         con.execute("COMMIT")
     except Exception:
         con.execute("ROLLBACK")
         raise
-    level = logging.WARNING if failures else logging.INFO
+    issues = {k: v for k, v in quality.items() if v}
+    level = logging.WARNING if failures or issues else logging.INFO
     log.log(
         level,
         "Built %s: %d rows, %d cast failures",
         target,
         result.rows,
         result.total_cast_failures,
-        extra={"table": target, "rows": result.rows, "cast_failures": failures},
+        extra={
+            "table": target,
+            "rows": result.rows,
+            "cast_failures": failures,
+            "quality": issues,
+        },
     )
     return result

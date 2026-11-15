@@ -13,13 +13,14 @@ from lakehouse.ingestion.socrata import SocrataClient
 from lakehouse.logging_setup import configure_logging, run_context
 from lakehouse.schema import format_schema
 from lakehouse.silver import crimes as silver_crimes
+from lakehouse.silver import service_requests as silver_311
 from lakehouse.status import collect_status, format_status, status_json
 from lakehouse.storage.bronze import DEFAULT_DB, BronzeStore
 from lakehouse.storage.export import DEFAULT_EXPORT_DIR, export_all, export_source
 
 log = logging.getLogger("lakehouse.cli")
 
-SILVER_BUILDERS = {"crimes": silver_crimes.build}
+SILVER_BUILDERS = {"crimes": silver_crimes.build, "service_requests": silver_311.build}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -132,6 +133,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{result.table}: {result.rows} rows from {result.source}")
         for col, n in sorted(result.cast_failures.items()):
             print(f"  cast failures: {col}={n}")
+        for check, n in sorted(result.quality.items()):
+            if n:
+                print(f"  quality: {check}={n}")
         return 0
 
     if args.command == "status":

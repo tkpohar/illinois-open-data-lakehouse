@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-15 — Milestone 12: silver 311 (typed columns, status normalisation)
+- New `silver.service_requests` from `bronze.chicago_311_requests__latest`: 19 typed
+  columns, raw status kept as `status_raw`, canonical `status`
+  (OPEN / COMPLETED / CANCELED / UNKNOWN) via `STATUS_MAP`, plus `is_open`,
+  `is_duplicate` ("Open - Dup" or duplicate flag) and `resolution_hours`
+- Consistency counts per build (`unknown_status`, `open_with_closed_date`,
+  `completed_without_closed_date`, `closed_before_created`); rows are never dropped
+- Shared builder: `derived` columns and named `quality_checks`; `silver._build_log`
+  gains a `quality` JSON column (added in place)
+- CLI: `lakehouse silver service_requests`; synthetic fixture
+  `tests/fixtures/chicago_311_sample.json`
+- Docs: `docs/silver-311.md`; tests in `tests/test_silver_311.py`
+
 ## 2026-11-14 — Milestone 11: silver crimes (typed columns, timestamps, booleans)
 - New `lakehouse.silver.typing`: declarative `Column` specs (text, upper, code, int,
   double, bool, timestamp) compiled to DuckDB SQL with safe casts; per-column cast-failure
