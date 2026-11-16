@@ -18,7 +18,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 ## Phase 2 — Silver layer (cleaning & conformance)
 - [x] 11. Silver crimes: typed columns, timestamps, booleans
 - [x] 12. Silver 311: typed columns, status normalization
-- [ ] 13. Silver taxi trips: fares, durations, outlier flags
+- [x] 13. Silver taxi trips: fares, durations, outlier flags
 - [ ] 14. Geospatial cleanup: lat/long validation, community-area lookup
 - [ ] 15. Shared reference data: community areas, districts (seed CSVs)
 - [ ] 16. SCD Type 2 helper for slowly-changing reference data

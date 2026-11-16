@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-16 — Milestone 13: silver taxi trips (fares, durations, outlier flags)
+- New `silver.taxi_trips` from `bronze.chicago_taxi_trips__latest`: 21 typed columns
+  (timestamps, seconds, miles, fare components, community areas, centroids)
+- Derived `duration_minutes`, `avg_speed_mph`, `fare_per_mile`, `tip_pct`
+- Eight outlier rules (negative amounts, non-positive or >6 h durations, >200 mi,
+  >90 mph, zero distance with a fare, totals >$1,000, totals not matching their
+  components) produce `outlier_reasons` and `is_outlier`; trips are flagged, never
+  dropped; per-rule counts in the build log
+- CLI: `lakehouse silver taxi_trips`; synthetic fixture `tests/fixtures/chicago_taxi_sample.json`
+- Docs: `docs/silver-taxi.md`; tests in `tests/test_silver_taxi.py`
+
 ## 2026-11-15 — Milestone 12: silver 311 (typed columns, status normalisation)
 - New `silver.service_requests` from `bronze.chicago_311_requests__latest`: 19 typed
   columns, raw status kept as `status_raw`, canonical `status`
