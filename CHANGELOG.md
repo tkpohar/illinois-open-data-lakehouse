@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-17 — Milestone 14: geospatial cleanup (lat/long validation, community-area lookup)
+- New `lakehouse.silver.geo`: per-point `geo_status` (ok, missing, null_island, swapped,
+  out_of_range, outside_chicago) against a padded Chicago bounding box, with
+  `latitude_clean` / `longitude_clean` (swapped pairs corrected)
+- Community-area lookup from a user-supplied GeoJSON (Polygon/MultiPolygon with holes),
+  pure-Python point-in-polygon: `community_area_geo`, `community_area_mismatch`,
+  `community_area_resolved` (reported value preferred, geometry fills gaps)
+- Works on `silver.crimes`, `silver.service_requests` and `silver.taxi_trips`
+  (pickup_/dropoff_ prefixes); idempotent; counts logged and returned
+- CLI: `lakehouse geo <table> [--areas FILE] [--area-property NAME]`
+- Docs: `docs/geo-cleanup.md`; tests in `tests/test_geo.py` (synthetic boundaries)
+
 ## 2026-11-16 — Milestone 13: silver taxi trips (fares, durations, outlier flags)
 - New `silver.taxi_trips` from `bronze.chicago_taxi_trips__latest`: 21 typed columns
   (timestamps, seconds, miles, fare components, community areas, centroids)

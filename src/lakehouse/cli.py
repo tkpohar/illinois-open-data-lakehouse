@@ -13,6 +13,7 @@ from lakehouse.ingestion.socrata import SocrataClient
 from lakehouse.logging_setup import configure_logging, run_context
 from lakehouse.schema import format_schema
 from lakehouse.silver import crimes as silver_crimes
+from lakehouse.silver import geo as silver_geo
 from lakehouse.silver import service_requests as silver_311
 from lakehouse.silver import taxi_trips as silver_taxi
 from lakehouse.status import collect_status, format_status, status_json
@@ -105,6 +106,16 @@ def main(argv: list[str] | None = None) -> int:
     silver.add_argument("table", choices=sorted(SILVER_BUILDERS))
     silver.add_argument("--db", default=str(DEFAULT_DB))
 
+    geo = sub.add_parser(
+        "geo", help="Validate coordinates and look up community areas in a silver table"
+    )
+    geo.add_argument("table", choices=sorted(t.split(".")[1] for t in silver_geo.GEO_TABLES))
+    geo.add_argument("--db", default=str(DEFAULT_DB))
+    geo.add_argument("--areas", default=None, help="Community-area boundaries (GeoJSON)")
+    geo.add_argument(
+        "--area-property", default=None, help="GeoJSON property holding the area number"
+    )
+
     args = parser.parse_args(argv)
     configure_logging(level=args.log_level.upper(), json_output=args.log_json)
     sources = load_sources()
@@ -125,6 +136,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "export":
         return _export(args)
+
+    if args.command == "geo":
+        return _geo(args)
 
     if args.command == "silver":
         store = BronzeStore(args.db)
@@ -313,6 +327,36 @@ def _export(args: argparse.Namespace) -> int:
         print(f"{r.source}: {r.rows} rows in {len(r.partitions)} partitions -> {r.path}")
     if not results:
         print("no bronze tables to export")
+    return 0
+
+
+def _geo(args: argparse.Namespace) -> int:
+    try:
+        areas = (
+            silver_geo.load_areas(args.areas, args.area_property) if args.areas else None
+        )
+    except (OSError, ValueError) as exc:
+        log.error("Cannot load community areas: %s", exc)
+        return 1
+    store = BronzeStore(args.db)
+    try:
+        result = silver_geo.clean_table(store.con, f"silver.{args.table}", areas)
+    except ValueError as exc:
+        log.error("%s", exc, extra={"table": args.table})
+        return 1
+    finally:
+        store.close()
+    print(f"{result.table}: {result.rows} rows")
+    for point, counts in result.status_counts.items():
+        summary = ", ".join(f"{s}={n}" for s, n in counts.items() if n)
+        print(f"  {point}: {summary or 'no rows'}")
+    for point in result.mismatches:
+        print(
+            f"  {point}: community area filled={result.filled[point]} "
+            f"mismatched={result.mismatches[point]} unmatched={result.unmatched[point]}"
+        )
+    if areas is None:
+        print("  (no --areas given: community-area lookup skipped)")
     return 0
 
 
