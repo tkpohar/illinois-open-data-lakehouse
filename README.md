@@ -56,6 +56,7 @@ lakehouse silver crimes                            # typed, one-row-per-crime si
 lakehouse silver service_requests                  # typed 311 requests with normalised status
 lakehouse silver taxi_trips                        # typed taxi trips with outlier flags
 lakehouse geo crimes --areas areas.geojson         # validate coordinates, look up community areas
+lakehouse seed                                     # load reference data (community areas, districts)
 pytest -q                                          # run the test suite
 ```
 
@@ -75,6 +76,8 @@ Silver tables: `silver.crimes` ([docs/silver-crimes.md](docs/silver-crimes.md)),
 `silver.taxi_trips` ([docs/silver-taxi.md](docs/silver-taxi.md)).
 Coordinates are validated and mapped to community areas with `lakehouse geo`
 (see [docs/geo-cleanup.md](docs/geo-cleanup.md)).
+Community areas and police districts are reference tables loaded from `seeds/`
+(see [docs/reference-data.md](docs/reference-data.md)).
 
 Set `SOCRATA_APP_TOKEN` (free from the data portal) for higher API rate limits. HTTP 429 /
 `Retry-After` responses are waited out automatically (see [docs/rate-limits.md](docs/rate-limits.md)).
@@ -96,6 +99,8 @@ src/lakehouse/
   silver/service_requests.py  silver.service_requests (311)
   silver/taxi_trips.py    silver.taxi_trips
   silver/geo.py           coordinate validation & community-area lookup
+  reference.py            seed loading into the reference schema
+seeds/                    reference-data CSVs
   cli.py                  `lakehouse` command
 tests/                    unit tests (offline, fixture-based)
 docs/                     design notes and guides

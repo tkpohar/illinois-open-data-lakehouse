@@ -11,6 +11,7 @@ from lakehouse.config import load_sources
 from lakehouse.drift import SEVERITIES, compare
 from lakehouse.ingestion.socrata import SocrataClient
 from lakehouse.logging_setup import configure_logging, run_context
+from lakehouse.reference import SeedError, load_all
 from lakehouse.schema import format_schema
 from lakehouse.silver import crimes as silver_crimes
 from lakehouse.silver import geo as silver_geo
@@ -116,6 +117,10 @@ def main(argv: list[str] | None = None) -> int:
         "--area-property", default=None, help="GeoJSON property holding the area number"
     )
 
+    seed = sub.add_parser("seed", help="Load reference data from seeds/ into reference.*")
+    seed.add_argument("--db", default=str(DEFAULT_DB))
+    seed.add_argument("--force", action="store_true", help="Reload even if unchanged")
+
     args = parser.parse_args(argv)
     configure_logging(level=args.log_level.upper(), json_output=args.log_json)
     sources = load_sources()
@@ -139,6 +144,20 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "geo":
         return _geo(args)
+
+    if args.command == "seed":
+        store = BronzeStore(args.db)
+        try:
+            results = load_all(store, force=args.force)
+        except SeedError as exc:
+            log.error("Seed validation failed: %s", exc)
+            return 1
+        finally:
+            store.close()
+        for r in results:
+            state = "loaded" if r.loaded else "unchanged"
+            print(f"{r.table}: {r.rows} rows ({state}, sha256 {r.checksum[:12]})")
+        return 0
 
     if args.command == "silver":
         store = BronzeStore(args.db)

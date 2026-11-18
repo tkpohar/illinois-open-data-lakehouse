@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-18 — Milestone 15: shared reference data (seed CSVs)
+- New `seeds/community_areas.csv` (77 official community areas) and
+  `seeds/police_districts.csv` (22 current CPD districts)
+- New `lakehouse.reference`: declarative `SEEDS` (types, key, key range, expected rows);
+  validate-then-load into `reference.*` with primary keys in one transaction; SHA-256
+  change detection with `reference._seed_log`; bad seeds raise `SeedError` and leave
+  existing tables untouched
+- CLI: `lakehouse seed [--force]`
+- Docs: `docs/reference-data.md` (incl. provenance caveats); tests in `tests/test_reference.py`
+
 ## 2026-11-17 — Milestone 14: geospatial cleanup (lat/long validation, community-area lookup)
 - New `lakehouse.silver.geo`: per-point `geo_status` (ok, missing, null_island, swapped,
   out_of_range, outside_chicago) against a padded Chicago bounding box, with
