@@ -4,7 +4,8 @@ Each seed is declared in ``SEEDS`` with its columns, key and validation rules. L
 validates the file *before* touching the database (unique non-null key, required
 columns, expected key range); a bad seed raises ``SeedError`` and leaves the previous
 table in place. A seed whose file is unchanged (same SHA-256) is skipped unless
-``force=True``. See ``docs/reference-data.md``.
+``force=True``. Every load also records changes in ``reference.<name>_history`` as a
+Type 2 slowly changing dimension (``lakehouse.scd``). See ``docs/reference-data.md``.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from lakehouse.scd import ScdResult, apply_scd2
 from lakehouse.storage.bronze import BronzeStore
 
 SEEDS_DIR = Path(__file__).resolve().parents[2] / "seeds"
@@ -40,6 +42,10 @@ class Seed:
     @property
     def table(self) -> str:
         return f"reference.{self.name}"
+
+    @property
+    def history_table(self) -> str:
+        return f"reference.{self.name}_history"
 
 
 SEEDS: dict[str, Seed] = {
@@ -70,6 +76,7 @@ class SeedResult:
     rows: int
     checksum: str
     loaded: bool  # False when skipped because the file was unchanged
+    history: ScdResult | None = None  # SCD2 changes recorded by this load
 
 
 @dataclass
@@ -173,13 +180,17 @@ def load_seed(
     except Exception:
         con.execute("ROLLBACK")
         raise
+    tracked = [c for c in seed.columns if c != seed.key]
+    history = apply_scd2(con, seed.table, seed.history_table, seed.key, tracked)
     log.info(
         "Loaded %s: %d rows",
         seed.table,
         len(parsed.rows),
         extra={"seed": seed.name, "rows": len(parsed.rows), "checksum": parsed.checksum[:12]},
     )
-    return SeedResult(seed.name, seed.table, len(parsed.rows), parsed.checksum, True)
+    return SeedResult(
+        seed.name, seed.table, len(parsed.rows), parsed.checksum, True, history
+    )
 
 
 def load_all(

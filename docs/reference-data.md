@@ -44,8 +44,8 @@ JOIN reference.community_areas ca USING (community_area)
 GROUP BY 1 ORDER BY 2 DESC;
 ```
 
-Referential-integrity checks from silver to these tables come in Milestone 28. Slowly
-changing reference data (SCD Type 2) comes in Milestone 16.
+Referential-integrity checks from silver to these tables come in Milestone 28. Every
+load also records changes in `reference.<seed>_history` ([SCD Type 2](scd2.md)).
 
 ## Provenance and caveats
 

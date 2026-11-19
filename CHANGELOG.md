@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-19 — Milestone 16: SCD Type 2 helper for slowly-changing reference data
+- New `lakehouse.scd.apply_scd2`: merges a keyed source into a history table with
+  `valid_from` / `valid_to` / `is_current` / `version` / `row_hash`; handles new,
+  changed, unchanged, removed (`close_missing`) and reappearing keys; idempotent,
+  transactional, forward-only, validates one non-NULL row per key
+- `as_of_sql` helper for point-in-time queries
+- `lakehouse seed` now maintains `reference.<seed>_history` for every loaded seed and
+  reports the changes it recorded
+- README project layout fixed (`seeds/` was listed inside `src/lakehouse/`)
+- Docs: `docs/scd2.md`; tests in `tests/test_scd.py`
+
 ## 2026-11-18 — Milestone 15: shared reference data (seed CSVs)
 - New `seeds/community_areas.csv` (77 official community areas) and
   `seeds/police_districts.csv` (22 current CPD districts)

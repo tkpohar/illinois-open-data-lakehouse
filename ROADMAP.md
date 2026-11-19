@@ -21,7 +21,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 13. Silver taxi trips: fares, durations, outlier flags
 - [x] 14. Geospatial cleanup: lat/long validation, community-area lookup
 - [x] 15. Shared reference data: community areas, districts (seed CSVs)
-- [ ] 16. SCD Type 2 helper for slowly-changing reference data
+- [x] 16. SCD Type 2 helper for slowly-changing reference data
 - [ ] 17. Silver transform framework (registry + dependency ordering)
 - [ ] 18. Incremental silver builds (process only new bronze rows)
 - [ ] 19. Unit tests for every silver transform

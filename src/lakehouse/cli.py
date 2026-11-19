@@ -157,6 +157,12 @@ def main(argv: list[str] | None = None) -> int:
         for r in results:
             state = "loaded" if r.loaded else "unchanged"
             print(f"{r.table}: {r.rows} rows ({state}, sha256 {r.checksum[:12]})")
+            if r.history and r.history.touched:
+                h = r.history
+                print(
+                    f"  history {h.table}: {h.inserted} new, {h.changed} changed, "
+                    f"{h.closed} closed, {h.reopened} reopened"
+                )
         return 0
 
     if args.command == "silver":

@@ -78,6 +78,7 @@ Coordinates are validated and mapped to community areas with `lakehouse geo`
 (see [docs/geo-cleanup.md](docs/geo-cleanup.md)).
 Community areas and police districts are reference tables loaded from `seeds/`
 (see [docs/reference-data.md](docs/reference-data.md)).
+Changes to reference data are kept as SCD Type 2 history (see [docs/scd2.md](docs/scd2.md)).
 
 Set `SOCRATA_APP_TOKEN` (free from the data portal) for higher API rate limits. HTTP 429 /
 `Retry-After` responses are waited out automatically (see [docs/rate-limits.md](docs/rate-limits.md)).
@@ -100,8 +101,9 @@ src/lakehouse/
   silver/taxi_trips.py    silver.taxi_trips
   silver/geo.py           coordinate validation & community-area lookup
   reference.py            seed loading into the reference schema
-seeds/                    reference-data CSVs
+  scd.py                  SCD Type 2 history helper
   cli.py                  `lakehouse` command
+seeds/                    reference-data CSVs
 tests/                    unit tests (offline, fixture-based)
 docs/                     design notes and guides
 ```
