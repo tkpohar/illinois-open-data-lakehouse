@@ -22,8 +22,8 @@ silver.crimes: 5000 rows
 | `service_requests` | `latitude` / `longitude` / `community_area` |
 | `taxi_trips` | `pickup_…` and `dropoff_…` centroids and community areas (columns prefixed `pickup_` / `dropoff_`) |
 
-A silver rebuild (`lakehouse silver …`) recreates the table, so run `lakehouse geo`
-again after it. Milestone 17's dependency ordering will chain the two steps.
+A silver rebuild recreates the table and drops these columns. `lakehouse silver <table>`
+re-runs the matching geo step automatically ([silver framework](silver-framework.md)).
 
 ## 1. Coordinate validation
 

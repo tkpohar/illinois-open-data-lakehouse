@@ -36,6 +36,10 @@ TRUE_VALUES = ("true", "t", "y", "yes", "1")
 FALSE_VALUES = ("false", "f", "n", "no", "0")
 
 
+class MissingInputError(ValueError):
+    """A transform's input (bronze view or upstream table) does not exist yet."""
+
+
 @dataclass(frozen=True)
 class Column:
     name: str

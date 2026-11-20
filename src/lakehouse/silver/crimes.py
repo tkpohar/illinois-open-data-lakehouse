@@ -6,7 +6,12 @@ names follow the Socrata dataset ``ijzp-q8t2``; see ``docs/silver-crimes.md``.
 
 from __future__ import annotations
 
-from lakehouse.silver.typing import BuildResult, Column, build_typed_table
+from lakehouse.silver.typing import (
+    BuildResult,
+    Column,
+    MissingInputError,
+    build_typed_table,
+)
 from lakehouse.storage.bronze import LATEST_SUFFIX, BronzeStore
 
 SOURCE = "chicago_crimes"
@@ -50,5 +55,7 @@ def build(store: BronzeStore) -> BuildResult:
         [f"{SOURCE}{LATEST_SUFFIX}"],
     ).fetchone()[0]
     if not exists:
-        raise ValueError(f"No bronze data for '{SOURCE}'; run `lakehouse ingest {SOURCE}` first")
+        raise MissingInputError(
+            f"No bronze data for '{SOURCE}'; run `lakehouse ingest {SOURCE}` first"
+        )
     return build_typed_table(store.con, relation, TABLE, COLUMNS)

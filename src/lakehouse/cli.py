@@ -13,21 +13,15 @@ from lakehouse.ingestion.socrata import SocrataClient
 from lakehouse.logging_setup import configure_logging, run_context
 from lakehouse.reference import SeedError, load_all
 from lakehouse.schema import format_schema
-from lakehouse.silver import crimes as silver_crimes
 from lakehouse.silver import geo as silver_geo
-from lakehouse.silver import service_requests as silver_311
-from lakehouse.silver import taxi_trips as silver_taxi
+from lakehouse.silver.registry import REGISTRY, Context
+from lakehouse.silver.typing import BuildResult
 from lakehouse.status import collect_status, format_status, status_json
 from lakehouse.storage.bronze import DEFAULT_DB, BronzeStore
 from lakehouse.storage.export import DEFAULT_EXPORT_DIR, export_all, export_source
 
 log = logging.getLogger("lakehouse.cli")
 
-SILVER_BUILDERS = {
-    "crimes": silver_crimes.build,
-    "service_requests": silver_311.build,
-    "taxi_trips": silver_taxi.build,
-}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,9 +97,22 @@ def main(argv: list[str] | None = None) -> int:
         help="Flag sources whose last run is older than this (default: 36)",
     )
 
-    silver = sub.add_parser("silver", help="Build a silver table from bronze")
-    silver.add_argument("table", choices=sorted(SILVER_BUILDERS))
+    silver = sub.add_parser(
+        "silver",
+        help="Run silver transforms in dependency order (default: all)",
+        description="Runs the named transforms plus everything downstream of them.",
+    )
+    silver.add_argument("names", nargs="*", metavar="TRANSFORM", help="Transforms to run")
     silver.add_argument("--db", default=str(DEFAULT_DB))
+    silver.add_argument("--list", action="store_true", help="Show the plan without running")
+    silver.add_argument(
+        "--upstream", action="store_true", help="Also run the selected steps' dependencies"
+    )
+    silver.add_argument(
+        "--no-downstream", action="store_true", help="Do not run dependent steps"
+    )
+    silver.add_argument("--areas", default=None, help="Community-area boundaries (GeoJSON)")
+    silver.add_argument("--area-property", default=None)
 
     geo = sub.add_parser(
         "geo", help="Validate coordinates and look up community areas in a silver table"
@@ -166,21 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "silver":
-        store = BronzeStore(args.db)
-        try:
-            result = SILVER_BUILDERS[args.table](store)
-        except ValueError as exc:
-            log.error("%s", exc, extra={"table": args.table})
-            return 1
-        finally:
-            store.close()
-        print(f"{result.table}: {result.rows} rows from {result.source}")
-        for col, n in sorted(result.cast_failures.items()):
-            print(f"  cast failures: {col}={n}")
-        for check, n in sorted(result.quality.items()):
-            if n:
-                print(f"  quality: {check}={n}")
-        return 0
+        return _silver(args)
 
     if args.command == "status":
         store = BronzeStore(args.db)
@@ -371,6 +364,20 @@ def _geo(args: argparse.Namespace) -> int:
         return 1
     finally:
         store.close()
+    _print_geo(result, areas is not None)
+    return 0
+
+
+def _print_build(result: BuildResult) -> None:
+    print(f"{result.table}: {result.rows} rows from {result.source}")
+    for col, n in sorted(result.cast_failures.items()):
+        print(f"  cast failures: {col}={n}")
+    for check, n in sorted(result.quality.items()):
+        if n:
+            print(f"  quality: {check}={n}")
+
+
+def _print_geo(result: silver_geo.GeoResult, with_areas: bool) -> None:
     print(f"{result.table}: {result.rows} rows")
     for point, counts in result.status_counts.items():
         summary = ", ".join(f"{s}={n}" for s, n in counts.items() if n)
@@ -380,9 +387,50 @@ def _geo(args: argparse.Namespace) -> int:
             f"  {point}: community area filled={result.filled[point]} "
             f"mismatched={result.mismatches[point]} unmatched={result.unmatched[point]}"
         )
-    if areas is None:
+    if not with_areas:
         print("  (no --areas given: community-area lookup skipped)")
-    return 0
+
+
+def _silver(args: argparse.Namespace) -> int:
+    select = args.names or None
+    try:
+        order = REGISTRY.plan(select, not args.no_downstream, args.upstream)
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 1
+    if args.list:
+        for i, name in enumerate(order, 1):
+            t = REGISTRY.transforms[name]
+            deps = f"  (after {', '.join(t.depends_on)})" if t.depends_on else ""
+            print(f"{i:>2}. {name}{deps}")
+        return 0
+    ctx = Context(args.areas, args.area_property)
+    if args.areas:
+        try:
+            ctx.areas()
+        except (OSError, ValueError) as exc:
+            log.error("Cannot load community areas: %s", exc)
+            return 1
+    store = BronzeStore(args.db)
+    try:
+        steps = REGISTRY.run(store, select, ctx, not args.no_downstream, args.upstream)
+    finally:
+        store.close()
+    for step in steps:
+        if step.status != "ok":
+            print(f"[{step.status}] {step.name}: {step.reason}")
+        elif isinstance(step.result, BuildResult):
+            _print_build(step.result)
+        elif isinstance(step.result, silver_geo.GeoResult):
+            _print_geo(step.result, args.areas is not None)
+        else:
+            print(f"[ok] {step.name}")
+    failed = [s.name for s in steps if s.status == "failed"]
+    requested = set(select or [])
+    requested_skipped = [s.name for s in steps if s.status == "skipped" and s.name in requested]
+    counts = {k: sum(s.status == k for s in steps) for k in ("ok", "skipped", "failed")}
+    print(f"{counts['ok']} ok, {counts['skipped']} skipped, {counts['failed']} failed")
+    return 1 if failed or requested_skipped else 0
 
 
 if __name__ == "__main__":

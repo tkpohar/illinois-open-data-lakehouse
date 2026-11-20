@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-20 — Milestone 17: silver transform framework (registry + dependency ordering)
+- New `lakehouse.silver.registry`: `Transform` (name, run, depends_on), `Registry` with
+  validation, cycle detection, deterministic topological `plan()` (downstream by default,
+  optional upstream) and `run()` returning per-step status, duration and result
+- Missing inputs (`MissingInputError`) are skips, not failures; a failed step skips only
+  its dependents while other branches continue
+- Default registry: `reference_seeds`, `crimes`, `service_requests`, `taxi_trips` and
+  their `*_geo` steps, so geo cleanup re-runs automatically after a rebuild
+- CLI: `lakehouse silver [TRANSFORM...] [--list] [--upstream] [--no-downstream]
+  [--areas FILE]`; `lakehouse silver crimes` keeps working
+- Docs: `docs/silver-framework.md`; tests in `tests/test_silver_registry.py`
+
 ## 2026-11-19 — Milestone 16: SCD Type 2 helper for slowly-changing reference data
 - New `lakehouse.scd.apply_scd2`: merges a keyed source into a history table with
   `valid_from` / `valid_to` / `is_current` / `version` / `row_hash`; handles new,

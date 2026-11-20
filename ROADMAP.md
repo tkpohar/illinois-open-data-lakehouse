@@ -22,7 +22,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 14. Geospatial cleanup: lat/long validation, community-area lookup
 - [x] 15. Shared reference data: community areas, districts (seed CSVs)
 - [x] 16. SCD Type 2 helper for slowly-changing reference data
-- [ ] 17. Silver transform framework (registry + dependency ordering)
+- [x] 17. Silver transform framework (registry + dependency ordering)
 - [ ] 18. Incremental silver builds (process only new bronze rows)
 - [ ] 19. Unit tests for every silver transform
 - [ ] 20. Docs: data dictionary for silver tables

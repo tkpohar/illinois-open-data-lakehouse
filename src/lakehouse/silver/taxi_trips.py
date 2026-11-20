@@ -7,7 +7,12 @@ dataset ``wrvz-psew``. Implausible trips are **flagged, not dropped**: each row 
 
 from __future__ import annotations
 
-from lakehouse.silver.typing import BuildResult, Column, build_typed_table
+from lakehouse.silver.typing import (
+    BuildResult,
+    Column,
+    MissingInputError,
+    build_typed_table,
+)
 from lakehouse.storage.bronze import LATEST_SUFFIX, BronzeStore
 
 SOURCE = "chicago_taxi_trips"
@@ -118,7 +123,9 @@ def build(store: BronzeStore) -> BuildResult:
         [view],
     ).fetchone()[0]
     if not exists:
-        raise ValueError(f"No bronze data for '{SOURCE}'; run `lakehouse ingest {SOURCE}` first")
+        raise MissingInputError(
+            f"No bronze data for '{SOURCE}'; run `lakehouse ingest {SOURCE}` first"
+        )
     return build_typed_table(
         store.con,
         f"bronze.{view}",

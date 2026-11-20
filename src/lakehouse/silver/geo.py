@@ -29,6 +29,8 @@ from pathlib import Path
 
 import duckdb
 
+from lakehouse.silver.typing import MissingInputError
+
 log = logging.getLogger(__name__)
 
 # Padded bounding box around the City of Chicago (city limits are roughly
@@ -207,7 +209,7 @@ def clean_table(
         [table],
     ).fetchone()[0]
     if not exists:
-        raise ValueError(f"{table} does not exist; build it first")
+        raise MissingInputError(f"{table} does not exist; build it first")
 
     rows = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     result = GeoResult(table=table, rows=rows)

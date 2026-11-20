@@ -52,9 +52,8 @@ lakehouse schema chicago_crimes                    # inferred schema of the late
 lakehouse drift chicago_crimes                     # schema changes vs. the previous run
 lakehouse export                                   # bronze -> Parquet, partitioned by ingest date
 lakehouse status                                   # per-source ingestion metrics & freshness
-lakehouse silver crimes                            # typed, one-row-per-crime silver table
-lakehouse silver service_requests                  # typed 311 requests with normalised status
-lakehouse silver taxi_trips                        # typed taxi trips with outlier flags
+lakehouse silver                                   # build all silver tables in dependency order
+lakehouse silver crimes                            # one table (+ its downstream geo step)
 lakehouse geo crimes --areas areas.geojson         # validate coordinates, look up community areas
 lakehouse seed                                     # load reference data (community areas, districts)
 pytest -q                                          # run the test suite
@@ -71,7 +70,8 @@ Bronze can be exported as ingest-date-partitioned Parquet
 (see [docs/parquet-export.md](docs/parquet-export.md)).
 `lakehouse status` summarises freshness, volumes, API pressure and drift per source
 (see [docs/status.md](docs/status.md)).
-Silver tables: `silver.crimes` ([docs/silver-crimes.md](docs/silver-crimes.md)),
+Silver is built by a dependency-ordered transform runner
+([docs/silver-framework.md](docs/silver-framework.md)). Silver tables: `silver.crimes` ([docs/silver-crimes.md](docs/silver-crimes.md)),
 `silver.service_requests` ([docs/silver-311.md](docs/silver-311.md)) and
 `silver.taxi_trips` ([docs/silver-taxi.md](docs/silver-taxi.md)).
 Coordinates are validated and mapped to community areas with `lakehouse geo`
@@ -100,6 +100,7 @@ src/lakehouse/
   silver/service_requests.py  silver.service_requests (311)
   silver/taxi_trips.py    silver.taxi_trips
   silver/geo.py           coordinate validation & community-area lookup
+  silver/registry.py      transform registry & dependency-ordered runner
   reference.py            seed loading into the reference schema
   scd.py                  SCD Type 2 history helper
   cli.py                  `lakehouse` command
