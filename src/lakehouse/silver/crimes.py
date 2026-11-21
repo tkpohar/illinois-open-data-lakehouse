@@ -46,7 +46,7 @@ COLUMNS: list[Column] = [
 ]
 
 
-def build(store: BronzeStore) -> BuildResult:
+def build(store: BronzeStore, incremental: bool = False) -> BuildResult:
     """Rebuild ``silver.crimes`` from the latest bronze version of every crime."""
     relation = f"bronze.{SOURCE}{LATEST_SUFFIX}"
     exists = store.con.execute(
@@ -58,4 +58,11 @@ def build(store: BronzeStore) -> BuildResult:
         raise MissingInputError(
             f"No bronze data for '{SOURCE}'; run `lakehouse ingest {SOURCE}` first"
         )
-    return build_typed_table(store.con, relation, TABLE, COLUMNS)
+    return build_typed_table(
+        store.con,
+        relation,
+        TABLE,
+        COLUMNS,
+        incremental=incremental,
+        changes_relation=f"bronze.{SOURCE}",
+    )

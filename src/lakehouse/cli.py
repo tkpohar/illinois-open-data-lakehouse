@@ -113,6 +113,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     silver.add_argument("--areas", default=None, help="Community-area boundaries (GeoJSON)")
     silver.add_argument("--area-property", default=None)
+    silver.add_argument(
+        "--full-refresh",
+        action="store_true",
+        help="Rebuild tables from scratch instead of processing only new bronze rows",
+    )
 
     geo = sub.add_parser(
         "geo", help="Validate coordinates and look up community areas in a silver table"
@@ -370,6 +375,10 @@ def _geo(args: argparse.Namespace) -> int:
 
 def _print_build(result: BuildResult) -> None:
     print(f"{result.table}: {result.rows} rows from {result.source}")
+    if result.mode == "incremental":
+        print(f"  incremental: {result.processed} rows processed")
+    elif result.full_reason:
+        print(f"  full build ({result.full_reason})")
     for col, n in sorted(result.cast_failures.items()):
         print(f"  cast failures: {col}={n}")
     for check, n in sorted(result.quality.items()):
@@ -404,7 +413,7 @@ def _silver(args: argparse.Namespace) -> int:
             deps = f"  (after {', '.join(t.depends_on)})" if t.depends_on else ""
             print(f"{i:>2}. {name}{deps}")
         return 0
-    ctx = Context(args.areas, args.area_property)
+    ctx = Context(args.areas, args.area_property, full_refresh=args.full_refresh)
     if args.areas:
         try:
             ctx.areas()

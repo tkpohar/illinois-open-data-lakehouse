@@ -97,7 +97,7 @@ QUALITY_CHECKS: dict[str, str] = {
 }
 
 
-def build(store: BronzeStore) -> BuildResult:
+def build(store: BronzeStore, incremental: bool = False) -> BuildResult:
     """Rebuild ``silver.service_requests`` from the latest bronze version of every SR."""
     view = f"{SOURCE}{LATEST_SUFFIX}"
     exists = store.con.execute(
@@ -116,4 +116,6 @@ def build(store: BronzeStore) -> BuildResult:
         COLUMNS,
         derived=DERIVED,
         quality_checks=QUALITY_CHECKS,
+        incremental=incremental,
+        changes_relation=f"bronze.{SOURCE}",
     )

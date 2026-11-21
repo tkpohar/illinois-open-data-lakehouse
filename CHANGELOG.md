@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-21 — Milestone 18: incremental silver builds
+- `build_typed_table(incremental=True, changes_relation=...)`: recomputes only keys with
+  bronze rows ingested after the table's watermark and upserts them in one transaction;
+  results match a full rebuild
+- New `silver._watermarks` (high-water mark + column-spec hash); automatic full build when
+  the table or watermark is missing or the spec changed (`BuildResult.full_reason`)
+- `BuildResult.mode` / `processed`; `silver._build_log` records both; cast failures cover
+  processed rows, quality counts cover the whole table
+- Silver builders take `incremental=`; the transform runner is incremental by default,
+  `lakehouse silver --full-refresh` forces a rebuild; geo columns survive upserts
+- Fixed the sample output in `docs/silver-framework.md`
+- Docs: `docs/silver-incremental.md`; tests in `tests/test_silver_incremental.py`
+
 ## 2026-11-20 — Milestone 17: silver transform framework (registry + dependency ordering)
 - New `lakehouse.silver.registry`: `Transform` (name, run, depends_on), `Registry` with
   validation, cycle detection, deterministic topological `plan()` (downstream by default,

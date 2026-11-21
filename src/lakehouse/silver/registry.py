@@ -38,6 +38,7 @@ class Context:
 
     areas_path: Path | str | None = None  # community-area GeoJSON for geo steps
     area_property: str | None = None
+    full_refresh: bool = False  # rebuild silver tables instead of processing new rows only
     _areas: Any = None
 
     def areas(self) -> geo.AreaIndex | None:
@@ -207,7 +208,11 @@ def default_registry() -> Registry:
     }
     for name, build in builds.items():
         reg.add(
-            Transform(name, lambda store, ctx, b=build: b(store), description=f"silver.{name}")
+            Transform(
+                name,
+                lambda store, ctx, b=build: b(store, incremental=not ctx.full_refresh),
+                description=f"silver.{name}",
+            )
         )
         reg.add(
             Transform(

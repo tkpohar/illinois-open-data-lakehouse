@@ -54,6 +54,7 @@ lakehouse export                                   # bronze -> Parquet, partitio
 lakehouse status                                   # per-source ingestion metrics & freshness
 lakehouse silver                                   # build all silver tables in dependency order
 lakehouse silver crimes                            # one table (+ its downstream geo step)
+lakehouse silver --full-refresh                    # rebuild instead of processing only new rows
 lakehouse geo crimes --areas areas.geojson         # validate coordinates, look up community areas
 lakehouse seed                                     # load reference data (community areas, districts)
 pytest -q                                          # run the test suite
@@ -71,7 +72,8 @@ Bronze can be exported as ingest-date-partitioned Parquet
 `lakehouse status` summarises freshness, volumes, API pressure and drift per source
 (see [docs/status.md](docs/status.md)).
 Silver is built by a dependency-ordered transform runner
-([docs/silver-framework.md](docs/silver-framework.md)). Silver tables: `silver.crimes` ([docs/silver-crimes.md](docs/silver-crimes.md)),
+([docs/silver-framework.md](docs/silver-framework.md)), incrementally by default
+([docs/silver-incremental.md](docs/silver-incremental.md)). Silver tables: `silver.crimes` ([docs/silver-crimes.md](docs/silver-crimes.md)),
 `silver.service_requests` ([docs/silver-311.md](docs/silver-311.md)) and
 `silver.taxi_trips` ([docs/silver-taxi.md](docs/silver-taxi.md)).
 Coordinates are validated and mapped to community areas with `lakehouse geo`

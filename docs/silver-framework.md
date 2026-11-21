@@ -10,10 +10,11 @@ lakehouse silver crimes          # crimes + everything downstream (crimes_geo)
 lakehouse silver --list          # show the plan without running
 lakehouse silver crimes_geo --upstream --no-downstream --list
 lakehouse silver --areas data/community_areas.geojson   # geo steps also look up areas
+lakehouse silver --full-refresh  # rebuild instead of processing only new rows
 ```
 
 ```
-reference.community_areas ... [ok] reference_seeds
+[ok] reference_seeds
 silver.crimes: 5000 rows from bronze.chicago_crimes__latest
 silver.crimes: 5000 rows
   point: ok=4962, missing=31, null_island=2, swapped=1, outside_chicago=4
@@ -44,6 +45,8 @@ silver.crimes: 5000 rows
   rebuild recreates the table and drops columns added later (e.g. geo), so its
   dependents must run again. `--no-downstream` turns this off. `--upstream` also runs
   the selected steps' dependencies. With no names, every step runs.
+
+Silver builds run **incrementally** by default; see [incremental builds](silver-incremental.md).
 
 ## Run semantics
 
