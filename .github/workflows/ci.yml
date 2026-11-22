@@ -18,4 +18,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
       - run: ruff check .
-      - run: pytest -q
+      - run: pytest -q --cov=lakehouse --cov-report=term
+      - name: Silver coverage gate (>= 95%)
+        run: coverage report --include="src/lakehouse/silver/*" --fail-under=95

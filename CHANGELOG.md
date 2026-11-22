@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-22 — Milestone 19: unit tests for every silver transform
+- New `tests/test_silver_contracts.py`: one `TableCase` per silver table and contract
+  tests run against all of them (schema and types, column-spec hygiene, one row per key
+  across bronze versions, empty/missing/sparse/garbage input, idempotence,
+  incremental = full, quality checks, registry and geo wiring); a completeness test fails
+  if a registered silver build has no case
+- Edge-case matrices for every typing kind; the last uncovered branches (non-numeric
+  GeoJSON area property, incremental build without a changes relation) now tested
+- Silver package at 100 % line coverage; CI runs pytest with coverage and gates the
+  silver package at >= 95 % (`pytest-cov` added to dev dependencies)
+- Docs: `docs/testing.md`
+
 ## 2026-11-21 — Milestone 18: incremental silver builds
 - `build_typed_table(incremental=True, changes_relation=...)`: recomputes only keys with
   bronze rows ingested after the table's watermark and upserts them in one transaction;

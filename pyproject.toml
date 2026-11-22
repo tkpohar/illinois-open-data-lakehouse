@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.5"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
 
 [project.scripts]
 lakehouse = "lakehouse.cli:main"
@@ -36,3 +36,9 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.coverage.run]
+source = ["lakehouse"]
+
+[tool.coverage.report]
+show_missing = true

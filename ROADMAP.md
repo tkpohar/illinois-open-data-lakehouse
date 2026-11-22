@@ -24,7 +24,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 16. SCD Type 2 helper for slowly-changing reference data
 - [x] 17. Silver transform framework (registry + dependency ordering)
 - [x] 18. Incremental silver builds (process only new bronze rows)
-- [ ] 19. Unit tests for every silver transform
+- [x] 19. Unit tests for every silver transform
 - [ ] 20. Docs: data dictionary for silver tables
 
 ## Phase 3 — Data quality
