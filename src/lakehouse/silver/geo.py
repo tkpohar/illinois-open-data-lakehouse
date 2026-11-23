@@ -154,6 +154,21 @@ def geo_status_sql(lat: str, lon: str, bbox: dict[str, float] = CHICAGO_BBOX) ->
     )
 
 
+#: Columns added by ``clean_table`` (prefixed per point, e.g. ``pickup_``).
+GEO_COLUMN_DESCRIPTIONS: dict[str, str] = {
+    "geo_status": "Coordinate check: ok, missing, null_island, swapped, out_of_range "
+    "or outside_chicago",
+    "latitude_clean": "Usable latitude (swapped pairs corrected; NULL unless ok/swapped)",
+    "longitude_clean": "Usable longitude (swapped pairs corrected; NULL unless ok/swapped)",
+    "community_area_geo": "Community area whose polygon contains the clean point "
+    "(needs --areas)",
+    "community_area_mismatch": "Reported community area differs from the geometric one "
+    "(needs --areas)",
+    "community_area_resolved": "Reported community area if valid (1-77), else the "
+    "geometric one (needs --areas)",
+}
+
+
 @dataclass(frozen=True)
 class PointColumns:
     """Where a table keeps one point. ``prefix`` names the added columns."""

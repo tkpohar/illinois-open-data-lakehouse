@@ -92,6 +92,13 @@ def typed_expr(col: Column) -> str:
     return f"TRY_CAST({raw} AS TIMESTAMP)"  # timestamp
 
 
+LINEAGE_DESCRIPTIONS: dict[str, str] = {
+    "record_key": "Bronze record key (the source primary key as text)",
+    "run_id": "Ingestion run that landed this version of the record",
+    "ingested_at": "When that version was ingested into bronze (UTC)",
+    "silver_built_at": "When the silver build that wrote this row ran (UTC)",
+}
+
 SQL_TYPES = {
     "text": "VARCHAR",
     "upper": "VARCHAR",

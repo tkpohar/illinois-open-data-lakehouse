@@ -17,6 +17,7 @@ from lakehouse.storage.bronze import LATEST_SUFFIX, BronzeStore
 
 SOURCE = "chicago_taxi_trips"
 TABLE = "silver.taxi_trips"
+GRAIN = "One row per taxi trip (`trip_id`); latest bronze version of each record."
 
 # Thresholds for the outlier rules (documented in docs/silver-taxi.md).
 MAX_TRIP_SECONDS = 6 * 3600  # longer than 6 hours
@@ -107,6 +108,15 @@ DERIVED: list[tuple[str, str]] = [
     ("outlier_reasons", _REASONS),
     ("is_outlier", f"len({_REASONS}) > 0"),
 ]
+
+DERIVED_DESCRIPTIONS: dict[str, str] = {
+    "duration_minutes": "`trip_seconds / 60`, else end minus start, in minutes",
+    "avg_speed_mph": "Average speed in miles per hour (when `trip_seconds > 0`)",
+    "fare_per_mile": "`fare / trip_miles` (when `trip_miles > 0`)",
+    "tip_pct": "Tip as a percentage of the fare (when `fare > 0`)",
+    "outlier_reasons": "Names of the outlier rules this trip breaks (empty if none)",
+    "is_outlier": "TRUE when `outlier_reasons` is not empty",
+}
 
 QUALITY_CHECKS: dict[str, str] = {
     "is_outlier": "is_outlier",

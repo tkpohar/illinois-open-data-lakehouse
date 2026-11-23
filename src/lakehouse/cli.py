@@ -133,6 +133,13 @@ def main(argv: list[str] | None = None) -> int:
     seed.add_argument("--db", default=str(DEFAULT_DB))
     seed.add_argument("--force", action="store_true", help="Reload even if unchanged")
 
+    docs = sub.add_parser("docs", help="Generate documentation from code")
+    docs.add_argument("what", choices=["dictionary"])
+    docs.add_argument("--out", default=None, help="Output path (default: docs/data-dictionary.md)")
+    docs.add_argument(
+        "--check", action="store_true", help="Exit 1 if the file is stale instead of writing"
+    )
+
     args = parser.parse_args(argv)
     configure_logging(level=args.log_level.upper(), json_output=args.log_json)
     sources = load_sources()
@@ -179,6 +186,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "silver":
         return _silver(args)
+
+    if args.command == "docs":
+        from lakehouse.silver import dictionary
+
+        path = args.out or dictionary.DEFAULT_PATH
+        if args.check:
+            if dictionary.check(path):
+                print(f"{path} is up to date")
+                return 0
+            print(f"{path} is stale; run `lakehouse docs dictionary`")
+            return 1
+        print(f"wrote {dictionary.write(path)}")
+        return 0
 
     if args.command == "status":
         store = BronzeStore(args.db)

@@ -17,6 +17,7 @@ from lakehouse.storage.bronze import LATEST_SUFFIX, BronzeStore
 
 SOURCE = "chicago_311_requests"
 TABLE = "silver.service_requests"
+GRAIN = "One row per 311 service request (`sr_number`); latest bronze version of each record."
 
 COLUMNS: list[Column] = [
     Column("sr_number", "sr_number", "upper", description="Service request number"),
@@ -88,6 +89,14 @@ DERIVED: list[tuple[str, str]] = [
         "THEN round(date_diff('second', created_at, closed_at) / 3600.0, 2) END",
     ),
 ]
+
+DERIVED_DESCRIPTIONS: dict[str, str] = {
+    "status": "Canonical status: OPEN, COMPLETED, CANCELED or UNKNOWN (from `status_raw`)",
+    "is_open": "`status = 'OPEN'`",
+    "is_duplicate": "Duplicate flag set, or a '... - Dup' status",
+    "resolution_hours": "Hours from `created_at` to `closed_at` (NULL if either is missing "
+    "or closed precedes created)",
+}
 
 QUALITY_CHECKS: dict[str, str] = {
     "unknown_status": "status = 'UNKNOWN'",

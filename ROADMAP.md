@@ -25,7 +25,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 17. Silver transform framework (registry + dependency ordering)
 - [x] 18. Incremental silver builds (process only new bronze rows)
 - [x] 19. Unit tests for every silver transform
-- [ ] 20. Docs: data dictionary for silver tables
+- [x] 20. Docs: data dictionary for silver tables
 
 ## Phase 3 — Data quality
 - [ ] 21. Expectation framework: not-null, unique, range, accepted values

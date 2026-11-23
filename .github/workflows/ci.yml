@@ -18,6 +18,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
       - run: ruff check .
+      - name: Data dictionary is up to date
+        run: lakehouse docs dictionary --check
       - run: pytest -q --cov=lakehouse --cov-report=term
       - name: Silver coverage gate (>= 95%)
         run: coverage report --include="src/lakehouse/silver/*" --fail-under=95

@@ -16,6 +16,7 @@ from lakehouse.storage.bronze import LATEST_SUFFIX, BronzeStore
 
 SOURCE = "chicago_crimes"
 TABLE = "silver.crimes"
+GRAIN = "One row per crime (`crime_id`); latest bronze version of each record."
 
 COLUMNS: list[Column] = [
     Column("crime_id", "id", "int", description="Unique crime record ID"),
