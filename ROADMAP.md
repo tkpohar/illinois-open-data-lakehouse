@@ -28,7 +28,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 20. Docs: data dictionary for silver tables
 
 ## Phase 3 — Data quality
-- [ ] 21. Expectation framework: not-null, unique, range, accepted values
+- [x] 21. Expectation framework: not-null, unique, range, accepted values
 - [ ] 22. Freshness checks per source
 - [ ] 23. Row-count anomaly detection (z-score on daily volumes)
 - [ ] 24. Data-quality results table + history

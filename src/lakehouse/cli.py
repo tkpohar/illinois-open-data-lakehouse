@@ -133,6 +133,11 @@ def main(argv: list[str] | None = None) -> int:
     seed.add_argument("--db", default=str(DEFAULT_DB))
     seed.add_argument("--force", action="store_true", help="Reload even if unchanged")
 
+    dq = sub.add_parser("dq", help="Run data-quality expectation suites")
+    dq.add_argument("tables", nargs="*", metavar="TABLE", help="e.g. silver.crimes (default: all)")
+    dq.add_argument("--db", default=str(DEFAULT_DB))
+    dq.add_argument("--json", action="store_true", help="Print results as JSON")
+
     docs = sub.add_parser("docs", help="Generate documentation from code")
     docs.add_argument("what", choices=["dictionary"])
     docs.add_argument("--out", default=None, help="Output path (default: docs/data-dictionary.md)")
@@ -186,6 +191,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "silver":
         return _silver(args)
+
+    if args.command == "dq":
+        return _dq(args)
 
     if args.command == "docs":
         from lakehouse.silver import dictionary
@@ -460,6 +468,42 @@ def _silver(args: argparse.Namespace) -> int:
     counts = {k: sum(s.status == k for s in steps) for k in ("ok", "skipped", "failed")}
     print(f"{counts['ok']} ok, {counts['skipped']} skipped, {counts['failed']} failed")
     return 1 if failed or requested_skipped else 0
+
+
+def _dq(args: argparse.Namespace) -> int:
+    import json
+
+    from lakehouse.quality.suites import run_all
+
+    store = BronzeStore(args.db)
+    try:
+        suites = run_all(store.con, args.tables or None)
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 1
+    finally:
+        store.close()
+    if args.json:
+        print(json.dumps([
+            {"table": s.table, "skipped": s.skipped, "passed": s.passed,
+             "results": [r.to_dict() for r in s.results]}
+            for s in suites
+        ], indent=2, default=str))
+    else:
+        for s in suites:
+            if s.skipped:
+                print(f"{s.table}: skipped (table does not exist)")
+                continue
+            ok = sum(r.passed for r in s.results)
+            print(f"{s.table}: {ok}/{len(s.results)} expectations passed")
+            for r in s.failed:
+                detail = r.error or (
+                    f"{r.failing_rows}/{r.total_rows} rows ({r.failing_share:.2%}), "
+                    f"allowed {1 - r.mostly:.2%}"
+                )
+                sample = f" e.g. {', '.join(map(str, r.sample))}" if r.sample else ""
+                print(f"  FAIL {r.name}: {detail}{sample}")
+    return 0 if all(s.passed for s in suites) else 1
 
 
 if __name__ == "__main__":

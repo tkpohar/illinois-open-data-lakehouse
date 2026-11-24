@@ -25,6 +25,7 @@ It is built step by step; see [ROADMAP.md](ROADMAP.md) for what's done and what'
           Analytics · dashboards · data-quality reports
 ```
 
+Data-quality expectations run per table with `lakehouse dq` (see [docs/data-quality.md](docs/data-quality.md)).
 Every silver column is documented in the generated [data dictionary](docs/data-dictionary.md).
 Testing approach and the silver contract suite are described in [docs/testing.md](docs/testing.md).
 Key design decisions are recorded as ADRs in [docs/adr](docs/adr/README.md), starting with
@@ -58,6 +59,7 @@ lakehouse silver                                   # build all silver tables in 
 lakehouse silver crimes                            # one table (+ its downstream geo step)
 lakehouse silver --full-refresh                    # rebuild instead of processing only new rows
 lakehouse docs dictionary                          # regenerate docs/data-dictionary.md
+lakehouse dq                                       # run data-quality expectation suites
 lakehouse geo crimes --areas areas.geojson         # validate coordinates, look up community areas
 lakehouse seed                                     # load reference data (community areas, districts)
 pytest -q                                          # run the test suite
@@ -107,6 +109,7 @@ src/lakehouse/
   silver/geo.py           coordinate validation & community-area lookup
   silver/registry.py      transform registry & dependency-ordered runner
   silver/dictionary.py    data-dictionary generator
+  quality/                data-quality expectations & suites
   reference.py            seed loading into the reference schema
   scd.py                  SCD Type 2 history helper
   cli.py                  `lakehouse` command
