@@ -133,6 +133,15 @@ def main(argv: list[str] | None = None) -> int:
     seed.add_argument("--db", default=str(DEFAULT_DB))
     seed.add_argument("--force", action="store_true", help="Reload even if unchanged")
 
+    fresh = sub.add_parser("freshness", help="Check ingestion and data freshness per source")
+    fresh.add_argument("sources", nargs="*", metavar="SOURCE", help="Default: all sources")
+    fresh.add_argument("--db", default=str(DEFAULT_DB))
+    fresh.add_argument("--json", action="store_true")
+    fresh.add_argument(
+        "--fail-on", choices=["warn", "error"], default="error",
+        help="Exit 1 at this status or worse (default: error)",
+    )
+
     dq = sub.add_parser("dq", help="Run data-quality expectation suites")
     dq.add_argument("tables", nargs="*", metavar="TABLE", help="e.g. silver.crimes (default: all)")
     dq.add_argument("--db", default=str(DEFAULT_DB))
@@ -194,6 +203,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "dq":
         return _dq(args)
+
+    if args.command == "freshness":
+        return _freshness(args, sources)
 
     if args.command == "docs":
         from lakehouse.silver import dictionary
@@ -468,6 +480,31 @@ def _silver(args: argparse.Namespace) -> int:
     counts = {k: sum(s.status == k for s in steps) for k in ("ok", "skipped", "failed")}
     print(f"{counts['ok']} ok, {counts['skipped']} skipped, {counts['failed']} failed")
     return 1 if failed or requested_skipped else 0
+
+
+def _freshness(args: argparse.Namespace, sources) -> int:
+    import json
+
+    from lakehouse.quality.freshness import STATUSES, check_all, worst
+
+    unknown = [s for s in args.sources if s not in sources]
+    if unknown:
+        log.error("Unknown source(s): %s", ", ".join(unknown))
+        return 1
+    selected = {k: v for k, v in sources.items() if not args.sources or k in args.sources}
+    store = BronzeStore(args.db)
+    try:
+        results = check_all(store, selected)
+    finally:
+        store.close()
+    if args.json:
+        print(json.dumps([r.to_dict() for r in results], indent=2))
+    else:
+        for r in results:
+            limits = f"warn > {r.warn_after_hours:g} h, error > {r.error_after_hours:g} h"
+            print(f"{r.status.upper():<5} {r.source:<26} {r.check:<9} {r.reason} ({limits})")
+    level = worst(results)
+    return 1 if STATUSES.index(level) >= STATUSES.index(args.fail_on) else 0
 
 
 def _dq(args: argparse.Namespace) -> int:

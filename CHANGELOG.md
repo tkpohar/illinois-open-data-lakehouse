@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-25 — Milestone 22: freshness checks per source
+- New `lakehouse.quality.freshness`: per source an **ingestion** check (time since the
+  last run) and an optional **data** check (age of the newest record, from the watermark),
+  each graded ok / warn / error; never-ingested sources and unparseable watermarks are errors
+- `FreshnessPolicy` in `SourceConfig`, set per source under `freshness:` in
+  `config/sources.yaml` (validated on load); data checks for crimes (240/480 h) and 311
+  (48/120 h), ingestion-only for the historical taxi and Urbana datasets
+- CLI: `lakehouse freshness [SOURCE...] [--fail-on warn|error] [--json]`
+- Docs: `docs/freshness.md`; tests in `tests/test_freshness.py`
+
 ## 2026-11-24 — Milestone 21: expectation framework (not-null, unique, range, accepted values)
 - New `lakehouse.quality.expectations`: `NotNull`, `Unique` (multi-column), `InRange`
   (numbers, dates, timestamps; either bound optional) and `AcceptedValues`, each compiled

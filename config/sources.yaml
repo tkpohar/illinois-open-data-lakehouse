@@ -1,5 +1,11 @@
 # Public datasets ingested into the bronze layer.
 # All sources are Socrata (SODA) APIs — no API key required for modest volumes.
+#
+# freshness (optional, hours; see docs/freshness.md):
+#   ingestion_warn_hours / ingestion_error_hours  time since the last ingestion run
+#                                                  (default 36 / 72)
+#   data_warn_hours / data_error_hours             age of the newest record (the
+#                                                  watermark); only checked when set
 sources:
   chicago_crimes:
     domain: data.cityofchicago.org
@@ -7,6 +13,9 @@ sources:
     description: Crimes - 2001 to Present
     incremental_column: updated_on
     primary_key: id
+    freshness:  # the portal publishes with a delay of about a week
+      data_warn_hours: 240
+      data_error_hours: 480
 
   chicago_311_requests:
     domain: data.cityofchicago.org
@@ -14,6 +23,9 @@ sources:
     description: 311 Service Requests
     incremental_column: last_modified_date
     primary_key: sr_number
+    freshness:  # requests are modified around the clock
+      data_warn_hours: 48
+      data_error_hours: 120
 
   chicago_taxi_trips:
     domain: data.cityofchicago.org

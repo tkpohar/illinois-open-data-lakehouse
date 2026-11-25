@@ -65,5 +65,7 @@ from lakehouse.quality.suites import SUITES
 SUITES["silver.taxi_trips"].append(in_range("silver.taxi_trips", "tip_pct", 0, 100, mostly=0.99))
 ```
 
-Coming next in this phase: freshness checks, row-count anomaly detection, a persistent
+Freshness per source is checked separately ([freshness](freshness.md)).
+
+Coming next in this phase: row-count anomaly detection, a persistent
 results table with history, an HTML report, and fail-fast vs warn severities.
