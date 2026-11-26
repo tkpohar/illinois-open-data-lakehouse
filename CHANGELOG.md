@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-26 — Milestone 23: row-count anomaly detection (z-score on daily volumes)
+- New `lakehouse.quality.anomalies`: z-score of a day's count against a trailing window
+  that excludes the day itself, missing days counted as 0, high/low anomalies,
+  `insufficient_history`, flat-baseline handling and an optional same-weekday
+  (seasonal) baseline
+- Series: `ingestion:<source>` (records ingested per day) and `events:<silver table>`
+  (crimes by occurrence, 311 by creation, taxi trips by start date)
+- CLI: `lakehouse anomalies [SERIES...] [--days N] [--window W] [--threshold Z]
+  [--seasonal] [--json]`, exit status 1 on any anomaly
+- Docs: `docs/anomalies.md`; tests in `tests/test_anomalies.py`
+
 ## 2026-11-25 — Milestone 22: freshness checks per source
 - New `lakehouse.quality.freshness`: per source an **ingestion** check (time since the
   last run) and an optional **data** check (age of the newest record, from the watermark),

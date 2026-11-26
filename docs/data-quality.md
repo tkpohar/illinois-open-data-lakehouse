@@ -67,5 +67,7 @@ SUITES["silver.taxi_trips"].append(in_range("silver.taxi_trips", "tip_pct", 0, 1
 
 Freshness per source is checked separately ([freshness](freshness.md)).
 
-Coming next in this phase: row-count anomaly detection, a persistent
+Daily volumes are screened separately ([anomalies](anomalies.md)).
+
+Coming next in this phase: a persistent
 results table with history, an HTML report, and fail-fast vs warn severities.

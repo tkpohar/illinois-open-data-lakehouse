@@ -27,6 +27,7 @@ It is built step by step; see [ROADMAP.md](ROADMAP.md) for what's done and what'
 
 Data-quality expectations run per table with `lakehouse dq` (see [docs/data-quality.md](docs/data-quality.md)).
 Freshness is checked per source with `lakehouse freshness` (see [docs/freshness.md](docs/freshness.md)).
+Daily volumes are screened for anomalies with `lakehouse anomalies` (see [docs/anomalies.md](docs/anomalies.md)).
 Every silver column is documented in the generated [data dictionary](docs/data-dictionary.md).
 Testing approach and the silver contract suite are described in [docs/testing.md](docs/testing.md).
 Key design decisions are recorded as ADRs in [docs/adr](docs/adr/README.md), starting with
@@ -62,6 +63,7 @@ lakehouse silver --full-refresh                    # rebuild instead of processi
 lakehouse docs dictionary                          # regenerate docs/data-dictionary.md
 lakehouse dq                                       # run data-quality expectation suites
 lakehouse freshness                                # ingestion & data freshness per source
+lakehouse anomalies --seasonal                     # z-score checks on daily row counts
 lakehouse geo crimes --areas areas.geojson         # validate coordinates, look up community areas
 lakehouse seed                                     # load reference data (community areas, districts)
 pytest -q                                          # run the test suite

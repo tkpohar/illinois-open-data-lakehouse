@@ -142,6 +142,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Exit 1 at this status or worse (default: error)",
     )
 
+    anom = sub.add_parser("anomalies", help="Z-score anomaly detection on daily row counts")
+    anom.add_argument("series", nargs="*", metavar="SERIES",
+                      help="ingestion:<source> or events:<silver table> (default: all with data)")
+    anom.add_argument("--db", default=str(DEFAULT_DB))
+    anom.add_argument("--days", type=int, default=1, help="Evaluate the last N days")
+    anom.add_argument("--window", type=int, default=28, help="Baseline days (default 28)")
+    anom.add_argument("--threshold", type=float, default=3.0, help="|z| above this is anomalous")
+    anom.add_argument("--min-history", type=int, default=7)
+    anom.add_argument("--seasonal", action="store_true", help="Compare with the same weekday")
+    anom.add_argument("--json", action="store_true")
+
     dq = sub.add_parser("dq", help="Run data-quality expectation suites")
     dq.add_argument("tables", nargs="*", metavar="TABLE", help="e.g. silver.crimes (default: all)")
     dq.add_argument("--db", default=str(DEFAULT_DB))
@@ -203,6 +214,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "dq":
         return _dq(args)
+
+    if args.command == "anomalies":
+        return _anomalies(args)
 
     if args.command == "freshness":
         return _freshness(args, sources)
@@ -480,6 +494,37 @@ def _silver(args: argparse.Namespace) -> int:
     counts = {k: sum(s.status == k for s in steps) for k in ("ok", "skipped", "failed")}
     print(f"{counts['ok']} ok, {counts['skipped']} skipped, {counts['failed']} failed")
     return 1 if failed or requested_skipped else 0
+
+
+def _anomalies(args: argparse.Namespace) -> int:
+    import json
+
+    from lakehouse.quality.anomalies import run_checks
+
+    store = BronzeStore(args.db)
+    try:
+        results = run_checks(
+            store.con, args.series or None, args.days, window=args.window,
+            threshold=args.threshold, min_history=args.min_history, seasonal=args.seasonal,
+        )
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 1
+    finally:
+        store.close()
+    if args.json:
+        print(json.dumps([r.to_dict() for r in results], indent=2))
+    else:
+        if not results:
+            print("no series with data")
+        for r in results:
+            if r.status == "insufficient_history":
+                detail = f"only {r.history_points} baseline days"
+            else:
+                detail = f"z={r.z:+.2f} vs mean {r.mean:g} (std {r.std:g}, n={r.history_points})"
+            flag = f"ANOMALY ({r.direction})" if r.status == "anomaly" else r.status
+            print(f"{r.day}  {r.series:<34} {r.value:>8}  {flag}: {detail}")
+    return 1 if any(r.status == "anomaly" for r in results) else 0
 
 
 def _freshness(args: argparse.Namespace, sources) -> int:
