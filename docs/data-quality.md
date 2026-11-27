@@ -69,5 +69,6 @@ Freshness per source is checked separately ([freshness](freshness.md)).
 
 Daily volumes are screened separately ([anomalies](anomalies.md)).
 
-Coming next in this phase: a persistent
-results table with history, an HTML report, and fail-fast vs warn severities.
+Results can be stored and queried over time ([results and history](dq-results.md)).
+
+Coming next in this phase: an HTML report, and fail-fast vs warn severities.

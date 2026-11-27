@@ -137,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     fresh.add_argument("sources", nargs="*", metavar="SOURCE", help="Default: all sources")
     fresh.add_argument("--db", default=str(DEFAULT_DB))
     fresh.add_argument("--json", action="store_true")
+    fresh.add_argument("--record", action="store_true", help="Store results in quality.results")
     fresh.add_argument(
         "--fail-on", choices=["warn", "error"], default="error",
         help="Exit 1 at this status or worse (default: error)",
@@ -152,11 +153,23 @@ def main(argv: list[str] | None = None) -> int:
     anom.add_argument("--min-history", type=int, default=7)
     anom.add_argument("--seasonal", action="store_true", help="Compare with the same weekday")
     anom.add_argument("--json", action="store_true")
+    anom.add_argument("--record", action="store_true", help="Store results in quality.results")
+
+    checks = sub.add_parser("checks", help="Run all checks and query stored data-quality history")
+    checks.add_argument("action", choices=["run", "latest", "history", "runs", "trend"])
+    checks.add_argument("--db", default=str(DEFAULT_DB))
+    checks.add_argument("--target", default=None, help="history: filter by table/source/series")
+    checks.add_argument("--check", default=None, help="history: filter by check name")
+    checks.add_argument("--status", default=None, choices=["pass", "warn", "fail", "skipped"])
+    checks.add_argument("--limit", type=int, default=50)
+    checks.add_argument("--days", type=int, default=30, help="trend: days to show")
+    checks.add_argument("--json", action="store_true")
 
     dq = sub.add_parser("dq", help="Run data-quality expectation suites")
     dq.add_argument("tables", nargs="*", metavar="TABLE", help="e.g. silver.crimes (default: all)")
     dq.add_argument("--db", default=str(DEFAULT_DB))
     dq.add_argument("--json", action="store_true", help="Print results as JSON")
+    dq.add_argument("--record", action="store_true", help="Store results in quality.results")
 
     docs = sub.add_parser("docs", help="Generate documentation from code")
     docs.add_argument("what", choices=["dictionary"])
@@ -217,6 +230,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "anomalies":
         return _anomalies(args)
+
+    if args.command == "checks":
+        return _checks(args, sources)
 
     if args.command == "freshness":
         return _freshness(args, sources)
@@ -496,6 +512,66 @@ def _silver(args: argparse.Namespace) -> int:
     return 1 if failed or requested_skipped else 0
 
 
+def _checks(args: argparse.Namespace, sources) -> int:
+    import json
+
+    from lakehouse.quality import results as qr
+
+    store = BronzeStore(args.db)
+    try:
+        if args.action == "run":
+            from lakehouse.quality.anomalies import run_checks
+            from lakehouse.quality.freshness import check_all
+            from lakehouse.quality.suites import run_all
+
+            rows = (qr.from_suites(run_all(store.con))
+                    + qr.from_freshness(check_all(store, sources))
+                    + qr.from_anomalies(run_checks(store.con)))
+            run = qr.record(store.con, rows)
+            c = run.counts
+            print(f"check run {run.check_run_id}: {c['pass']} pass, {c['warn']} warn, "
+                  f"{c['fail']} fail, {c['skipped']} skipped")
+            for r in rows:
+                if r.status in ("fail", "warn"):
+                    print(f"  {r.status.upper():<4} {r.check_type:<11} {r.target}: {r.check_name}")
+            return 1 if run.worst == "fail" else 0
+        if args.action == "latest":
+            data = qr.latest(store.con)
+        elif args.action == "history":
+            data = qr.history(store.con, args.target, args.check, status=args.status,
+                              limit=args.limit)
+        elif args.action == "runs":
+            data = qr.runs(store.con, args.limit)
+        else:
+            data = qr.pass_rate_by_day(store.con, args.days)
+    finally:
+        store.close()
+    if args.json:
+        print(json.dumps(data, indent=2, default=str))
+        return 0
+    if not data:
+        print("no stored results")
+    for row in data:
+        if args.action == "latest":
+            since = f", last pass {row['last_pass_at']:%Y-%m-%d %H:%M}" if row["last_pass_at"] \
+                else ", never passed"
+            streak = f"{row['streak']}x" if row["status"] != "pass" else ""
+            print(f"{row['status'].upper():<7} {streak:>4} {row['check_type']:<11} "
+                  f"{row['target']}: {row['check_name']}"
+                  f"{since if row['status'] != 'pass' else ''}")
+        elif args.action == "history":
+            print(f"{row['checked_at']:%Y-%m-%d %H:%M}  {row['status']:<7} "
+                  f"{row['check_type']:<11} {row['target']}: {row['check_name']}")
+        elif args.action == "runs":
+            print(f"{row['started_at']:%Y-%m-%d %H:%M}  {row['check_run_id']}  "
+                  f"pass={row['passed']} warn={row['warned']} fail={row['failed']} "
+                  f"skipped={row['skipped']}")
+        else:
+            rate = "n/a" if row["pass_rate"] is None else f"{row['pass_rate']:.1%}"
+            print(f"{row['day']}  {row['check_type']:<11} {row['checks']:>5} checks  {rate}")
+    return 0
+
+
 def _anomalies(args: argparse.Namespace) -> int:
     import json
 
@@ -507,6 +583,10 @@ def _anomalies(args: argparse.Namespace) -> int:
             store.con, args.series or None, args.days, window=args.window,
             threshold=args.threshold, min_history=args.min_history, seasonal=args.seasonal,
         )
+        if args.record:
+            from lakehouse.quality.results import from_anomalies, record
+
+            record(store.con, from_anomalies(results))
     except ValueError as exc:
         log.error("%s", exc)
         return 1
@@ -540,6 +620,10 @@ def _freshness(args: argparse.Namespace, sources) -> int:
     store = BronzeStore(args.db)
     try:
         results = check_all(store, selected)
+        if args.record:
+            from lakehouse.quality.results import from_freshness, record
+
+            record(store.con, from_freshness(results))
     finally:
         store.close()
     if args.json:
@@ -560,6 +644,10 @@ def _dq(args: argparse.Namespace) -> int:
     store = BronzeStore(args.db)
     try:
         suites = run_all(store.con, args.tables or None)
+        if args.record:
+            from lakehouse.quality.results import from_suites, record
+
+            record(store.con, from_suites(suites))
     except ValueError as exc:
         log.error("%s", exc)
         return 1

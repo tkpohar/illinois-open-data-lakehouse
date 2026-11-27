@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-27 — Milestone 24: data-quality results table + history
+- New `lakehouse.quality.results`: `quality.results` (one row per check result, all
+  families, normalised to pass / warn / fail / skipped, with observed value and full
+  JSON details) and `quality.check_runs`; transactional `record()`
+- History queries: `latest()` with failure streaks and last-pass time, filtered
+  `history()`, `runs()` and `pass_rate_by_day()`
+- CLI: `--record` on `lakehouse dq`, `freshness` and `anomalies`; new
+  `lakehouse checks run|latest|history|runs|trend`
+- Docs: `docs/dq-results.md`; tests in `tests/test_dq_results.py`
+
 ## 2026-11-26 — Milestone 23: row-count anomaly detection (z-score on daily volumes)
 - New `lakehouse.quality.anomalies`: z-score of a day's count against a trailing window
   that excludes the day itself, missing days counted as 0, high/low anomalies,

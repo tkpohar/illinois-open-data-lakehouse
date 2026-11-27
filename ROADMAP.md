@@ -31,7 +31,7 @@ Check items off (`[x]`) as they are completed and log them in CHANGELOG.md.
 - [x] 21. Expectation framework: not-null, unique, range, accepted values
 - [x] 22. Freshness checks per source
 - [x] 23. Row-count anomaly detection (z-score on daily volumes)
-- [ ] 24. Data-quality results table + history
+- [x] 24. Data-quality results table + history
 - [ ] 25. HTML data-quality report generator
 - [ ] 26. Fail-fast vs warn severity levels
 - [ ] 27. Data profiling command (`lakehouse profile <table>`)
