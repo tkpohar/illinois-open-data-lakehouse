@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-28 — Milestone 25: HTML data-quality report generator
+- New `lakehouse.quality.report`: self-contained HTML (inline CSS and SVG, no JavaScript,
+  light/dark aware) built from `quality.results`: summary cards, a "needs attention"
+  table with streaks, last pass and plain-language details, a 30-day pass-rate chart,
+  per-target counts, all checks and recent check runs
+- Every data-derived value is HTML-escaped; tests check escaping and balanced markup
+- CLI: `lakehouse checks report [--out PATH]` (default `data/reports/dq-report.html`)
+- Docs: `docs/dq-report.md`; tests in `tests/test_dq_report.py`
+
 ## 2026-11-27 — Milestone 24: data-quality results table + history
 - New `lakehouse.quality.results`: `quality.results` (one row per check result, all
   families, normalised to pass / warn / fail / skipped, with observed value and full

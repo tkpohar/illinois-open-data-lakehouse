@@ -77,4 +77,4 @@ FROM quality.results WHERE status = 'fail'
 GROUP BY ALL HAVING min(checked_at) > now() - INTERVAL 7 DAY;
 ```
 
-The HTML data-quality report (Milestone 25) is built from these tables.
+The [HTML data-quality report](dq-report.md) is built from these tables.

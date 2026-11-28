@@ -71,4 +71,6 @@ Daily volumes are screened separately ([anomalies](anomalies.md)).
 
 Results can be stored and queried over time ([results and history](dq-results.md)).
 
-Coming next in this phase: an HTML report, and fail-fast vs warn severities.
+They are summarised in an [HTML report](dq-report.md).
+
+Coming next in this phase: fail-fast vs warn severities.

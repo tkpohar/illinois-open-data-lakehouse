@@ -156,7 +156,10 @@ def main(argv: list[str] | None = None) -> int:
     anom.add_argument("--record", action="store_true", help="Store results in quality.results")
 
     checks = sub.add_parser("checks", help="Run all checks and query stored data-quality history")
-    checks.add_argument("action", choices=["run", "latest", "history", "runs", "trend"])
+    checks.add_argument(
+        "action", choices=["run", "latest", "history", "runs", "trend", "report"]
+    )
+    checks.add_argument("--out", default=None, help="report: output HTML path")
     checks.add_argument("--db", default=str(DEFAULT_DB))
     checks.add_argument("--target", default=None, help="history: filter by table/source/series")
     checks.add_argument("--check", default=None, help="history: filter by check name")
@@ -519,6 +522,12 @@ def _checks(args: argparse.Namespace, sources) -> int:
 
     store = BronzeStore(args.db)
     try:
+        if args.action == "report":
+            from lakehouse.quality import report
+
+            path = report.write(store.con, args.out or report.DEFAULT_REPORT)
+            print(f"wrote {path}")
+            return 0
         if args.action == "run":
             from lakehouse.quality.anomalies import run_checks
             from lakehouse.quality.freshness import check_all
